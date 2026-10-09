@@ -55,11 +55,25 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{border-bottom:1p
 .tm{text-align:center}.tm .av{width:96px;height:96px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;background:var(--line);color:var(--pri);font-size:2rem;font-weight:700}
 .tm strong{display:block}.tm small{display:block}
 header{padding:26px 16px}header h1{font-size:1.45rem;max-width:760px;margin:0 auto}header p{max-width:700px;margin:8px auto 0}
+header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
+.eyebrow{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin-bottom:6px}
+.cta{display:inline-block;margin:14px 6px 0;padding:10px 20px;border-radius:999px;background:#fff;color:#0f766e;font-weight:700;text-decoration:none;border:2px solid #fff}
+.cta.o{background:transparent;color:#fff}
+.tm em{display:block;color:var(--mute);font-size:.85rem;margin-top:6px}
+.tm .av{width:110px;height:110px}.steps .card{margin:0}.steps{margin-bottom:14px}
 </style></head><body>
 <div id="pub">
-<header><h1 id="siteTitle">Welcome to the Nursing and Midwifery Department Examination Results Resolution Platform</h1><p id="welcomeMsg">Fill in the required spaces below to report your examination or results issue, then track your case until your results are resolved. Thank you.</p></header>
+<header><div class="eyebrow">Department of Nursing and Midwifery</div>
+<h1 id="siteTitle">Welcome to the Nursing and Midwifery Department Examination Results Resolution Platform</h1>
+<p id="welcomeMsg">Your results matter to us. If an examination result is missing, incorrect, withheld or not yet uploaded, tell us here. Every report is recorded, grouped and presented to the department so it can be resolved. Fill in the required spaces, keep your reference number, and track your case until your results are released. Thank you.</p>
+<a class="cta" href="#start">Report an issue</a><a class="cta o" href="#start" id="ctaTrack">Track my case</a></header>
 <main>
-  <div class="tabs">
+<div class="grid steps">
+<div class="card"><b>1. Report</b><br><small>Fill in your details, the course, the level and semester, and describe the problem.</small></div>
+<div class="card"><b>2. Keep your reference</b><br><small>You receive a private reference number as soon as you submit.</small></div>
+<div class="card"><b>3. Track</b><br><small>Use the reference number any time to see where your case has reached.</small></div></div>
+<section class="card" id="teamCard"><h2 style="margin-top:0">Meet Our Department Leadership</h2><div class="grid" id="teamGrid"></div></section>
+  <div class="tabs" id="start">
     <button id="tabReport" class="on" type="button">Report an issue</button>
     <button id="tabTrack" type="button">Track my case</button>
   </div>
@@ -133,7 +147,6 @@ header{padding:26px 16px}header h1{font-size:1.45rem;max-width:760px;margin:0 au
       <div id="trackOut"></div>
     </div>
   </section>
-<section class="card" id="teamCard"><h2 style="margin-top:0">Meet Our Team</h2><div class="grid" id="teamGrid"></div></section>
 </main>
 <footer>Your details are only seen by authorised administrators.<br><br><button class="sec" id="staffLink" type="button">Staff login</button></footer>
 
@@ -162,8 +175,11 @@ header{padding:26px 16px}header h1{font-size:1.45rem;max-width:760px;margin:0 au
 </main></div>
 
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.js"></script>
+<script>window.supabase||document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"><\/script>')</script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
+if(typeof supabase==="undefined"){document.body.insertAdjacentHTML("afterbegin",'<p style="background:#b3261e;color:#fff;padding:12px;margin:0">The page could not load its database library. Check your internet connection and refresh.</p>');}
 // ===== PUT YOUR TWO VALUES HERE (Supabase > Project Settings > API) =====
 const SUPABASE_URL="https://vmoxzwipxmqkeukahnms.supabase.co";
 const SUPABASE_ANON_KEY="sb_publishable_m-wY_RbuqGDySB-tckEgEQ_uRq9d-mt"; // anon public key ONLY, never service_role
@@ -176,12 +192,12 @@ const note=(box,t,ok)=>{box.replaceChildren(t?el("div",{className:"amsg"+(ok?" o
 const nm=(a,id)=>(a.find(x=>x.id===id)||{}).name||"";
 
 $("go").onclick=async()=>{const {error}=await db.auth.signInWithPassword({email:$("em").value,password:$("pw").value});
- if(error)return note($("lm"),"Sign in failed.");$("pw").value="";boot()};
+ if(error)return note($("lm"),"Sign in failed: "+error.message+(/confirm/i.test(error.message)?" (In Supabase open Authentication > Users, open this user and confirm the email.)":""));$("pw").value="";boot()};
 $("out").onclick=async()=>{await db.auth.signOut();location.reload()};
 async function boot(){
  const {data:{session}}=await db.auth.getSession(); if(!session)return;
- const {data:p}=await db.from("admin_profiles").select("full_name,role,is_active").eq("user_id",session.user.id).maybeSingle();
- if(!p||!p.is_active){await db.auth.signOut();return note($("lm"),"This account is not an administrator.")}
+ const {data:p,error:pe}=await db.from("admin_profiles").select("full_name,role,is_active").eq("user_id",session.user.id).maybeSingle();
+ if(pe||!p||!p.is_active){await db.auth.signOut();return note($("lm"),pe?"Database error: "+pe.message:"You signed in, but this email is not registered as an administrator yet. Run the admin_profiles insert in Supabase.")}
  me={id:session.user.id,...p};$("login").hidden=true;$("app").hidden=false;$("who").textContent=p.full_name+" ("+p.role+")";
  await lookups();tab("overview")}
 async function lookups(){
@@ -372,10 +388,12 @@ $("trackBtn").onclick=async()=>{
 };
 
 
-async function loadTeam(){const {data}=await db.from("team_members").select("id,role_title,full_name,photo").eq("is_active",true).order("sort_order");
- const g=$("teamGrid");g.replaceChildren();(data||[]).forEach(x=>{const n=x.full_name||x.role_title;
+async function loadTeam(){let r=await db.from("team_members").select("id,role_title,full_name,photo,message").eq("is_active",true).order("sort_order");
+ if(r.error)r=await db.from("team_members").select("id,role_title,full_name,photo").eq("is_active",true).order("sort_order");
+ const data=r.data;const g=$("teamGrid");g.replaceChildren();
+ (data||[]).forEach(x=>{const n=x.full_name||x.role_title;
   const p=x.photo?el("img",{src:x.photo,alt:n,className:"av"}):el("div",{className:"av",textContent:n.charAt(0).toUpperCase()});
-  g.append(el("div",{className:"tm"},p,el("strong",{textContent:x.full_name||"To be announced"}),el("small",{textContent:x.role_title})))});
+  g.append(el("div",{className:"tm"},p,el("strong",{textContent:x.full_name||"To be announced"}),el("small",{textContent:x.role_title}),...(x.message?[el("em",{textContent:"\u201C"+x.message+"\u201D"})]:[])))});
  $("teamCard").hidden=!(data&&data.length)}
 async function website(){const v=$("v-site");const {data:s}=await db.from("site_settings").select("key,value");
  const g=k=>{const r=(s||[]).find(x=>x.key===k);return r?r.value:""};
@@ -384,7 +402,7 @@ async function website(){const v=$("v-site");const {data:s}=await db.from("site_
  sv.onclick=async()=>{const r=(k,val)=>({key:k,value:val,is_public:true,updated_by:me.id});
   const {error}=await db.from("site_settings").upsert([r("welcome_title",t.value),r("welcome_message",m.value),r("reporting_instructions",ins.value)]);
   note(msg,error?"Only the super administrator can change this.":"Saved. Refresh the public page to see it.",!error)};
- const tm=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
+ const tm=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),qrCard(),el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
  await teamEditor(tm)}
 async function teamEditor(box){const {data}=await db.from("team_members").select("*").order("sort_order").order("role_title");const m=el("div");
  const add=el("button",{className:"b g",textContent:"+ Add team member"});
@@ -392,16 +410,23 @@ async function teamEditor(box){const {data}=await db.from("team_members").select
  box.replaceChildren(add,m,...(data||[]).map(x=>{let photo=x.photo;
   const img=el("img",{style:"width:90px;height:90px;border-radius:50%;object-fit:cover;background:var(--line)"});if(photo)img.src=photo;
   const ti=el("input",{type:"text",value:x.role_title,maxLength:100,placeholder:"Role e.g. Head of Department"}),na=el("input",{type:"text",value:x.full_name,maxLength:150,placeholder:"Full name"}),
-   or=el("input",{type:"number",value:x.sort_order,style:"width:80px"}),fi=el("input",{type:"file",accept:"image/jpeg,image/png,image/webp"}),ac=el("input",{type:"checkbox",checked:x.is_active});
+   ms=el("textarea",{value:x.message||"",maxLength:400,placeholder:"Short message or phrase to show under the name (optional)",style:"width:100%"}),or=el("input",{type:"number",value:x.sort_order,style:"width:80px"}),fi=el("input",{type:"file",accept:"image/jpeg,image/png,image/webp"}),ac=el("input",{type:"checkbox",checked:x.is_active});
   fi.onchange=()=>{const f=fi.files[0];if(!f)return;
    if(!["image/jpeg","image/png","image/webp"].includes(f.type)||f.size>204800){fi.value="";return note(m,"Photo must be JPG, PNG or WebP and at most 200 KB.")}
    const r=new FileReader();r.onload=()=>{photo=r.result;img.src=photo;note(m,"Photo chosen. Press Save.",true)};r.readAsDataURL(f)};
   const sv=el("button",{className:"b",textContent:"Save"});
-  sv.onclick=async()=>{const {error}=await db.from("team_members").update({role_title:ti.value.trim(),full_name:na.value.trim(),photo,sort_order:+or.value||100,is_active:ac.checked}).eq("id",x.id);note(m,error?"Could not save (photo over 200 KB or wrong role).":"Saved.",!error)};
+  sv.onclick=async()=>{const {error}=await db.from("team_members").update({role_title:ti.value.trim(),full_name:na.value.trim(),photo,sort_order:+or.value||100,is_active:ac.checked,...(("message" in x)?{message:ms.value.trim()||null}:{})}).eq("id",x.id);note(m,error?"Could not save (photo over 200 KB or wrong role).":"Saved.",!error)};
   const rp=el("button",{className:"b g",textContent:"Remove photo"});rp.onclick=()=>{photo=null;img.removeAttribute("src")};
   const dl=el("button",{className:"b g",textContent:"Delete member"});
   dl.onclick=async()=>{if(!confirm("Delete this team member?"))return;const {error}=await db.from("team_members").delete().eq("id",x.id);if(error)return note(m,"Only the super administrator can delete.");website()};
-  return el("div",{className:"card"},el("div",{className:"arow"},img,el("div",{style:"flex:1"},ti,na)),el("div",{className:"arow"},fi,rp,el("label",{},ac," Show on site")," Order ",or),el("div",{className:"arow"},sv,dl))}))}
+  return el("div",{className:"card"},el("div",{className:"arow"},img,el("div",{style:"flex:1"},ti,na)),el("div",{className:"arow"},ms),el("div",{className:"arow"},fi,rp,el("label",{},ac," Show on site")," Order ",or),el("div",{className:"arow"},sv,dl))}))}
+function qrCard(){const c=el("div",{className:"card"},el("h3",{textContent:"QR code for this website"}));const url=location.href.split("#")[0];
+ if(typeof qrcode==="undefined"){c.append("The QR library did not load. Refresh and try again.");return c}
+ const q=qrcode(0,"M");q.addData(url);q.make();
+ c.append(el("div",{textContent:url}),el("img",{src:q.createDataURL(8,4),alt:"QR code",style:"width:220px;height:220px;image-rendering:pixelated;background:#fff;display:block;margin:10px 0"}),
+  el("a",{href:q.createDataURL(12,4),download:"examination-platform-qr.gif",textContent:"Download QR code",style:"color:var(--pri);font-weight:700"}),
+  el("div",{textContent:"Print it on notice boards. Students scan it to open this page.",style:"color:var(--mute);margin-top:6px"}));return c}
+$("ctaTrack").onclick=()=>ptab(false);
 $("staffLink").onclick=()=>{$("pub").hidden=true;$("adm").hidden=false;boot()};
 $("back").onclick=()=>{$("adm").hidden=true;$("pub").hidden=false};
 init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE"))loadTeam()});
