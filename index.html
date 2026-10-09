@@ -293,7 +293,7 @@ $("xls").onclick=async()=>{if(!rows.length)return note($("cm"),"No cases to expo
  const H=["Reference","Name","Index","Admission year","Intake","Course","Current level","Affected level","Semester","Issue","Status","Description","Submitted"];
  const wb=XLSX.utils.book_new(),by={};rows.forEach(r=>{(by[r.batch_label]=by[r.batch_label]||[]).push(r)});
  Object.keys(by).forEach(k=>{const ws=XLSX.utils.aoa_to_sheet([H].concat(by[k].map(r=>[r.reference_number,r.full_name,r.index_number,r.admission_year,r.intake,r.course_name,r.current_level,r.affected_level,r.affected_semester,r.category_name,r.status_name,r.description,r.created_at])));
-  ws["!cols"]=H.map((h,i)=>({wch:[16,24,16,10,11,22,9,9,9,30,22,50,22][i]}));XLSX.utils.book_append_sheet(wb,ws,k.replace(/[\\\/?*\[\]:]/g,"").slice(0,31))});
+  ws["!cols"]=H.map((h,i)=>({wch:[16,24,16,10,11,22,9,9,9,30,22,50,22][i]}));XLSX.utils.book_append_sheet(wb,ws,k.replace(/[\\/?*\[\]:]/g,"").slice(0,31))});
  XLSX.writeFile(wb,"exam-issues-by-batch-"+new Date().toISOString().slice(0,10)+".xlsx");note($("cm"),"Excel file downloaded: one sheet for each batch.",true)};
 $("csv").onclick=async()=>{const {error}=await db.rpc("log_export",{p_description:"CSV: "+rows.length+" rows"});
  if(error)return note($("cm"),"Your role may not export records.");
