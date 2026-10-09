@@ -179,6 +179,7 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
 <script>window.supabase||document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"><\/script>')</script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
+window.addEventListener("error",e=>{document.body.insertAdjacentHTML("afterbegin",'<p style="background:#b3261e;color:#fff;padding:10px;margin:0;font-size:14px">Page error: '+String(e.message).replace(/</g,"&lt;")+"</p>")});
 if(typeof supabase==="undefined"){document.body.insertAdjacentHTML("afterbegin",'<p style="background:#b3261e;color:#fff;padding:12px;margin:0">The page could not load its database library. Check your internet connection and refresh.</p>');}
 // ===== PUT YOUR TWO VALUES HERE (Supabase > Project Settings > API) =====
 const SUPABASE_URL="https://vmoxzwipxmqkeukahnms.supabase.co";
@@ -427,7 +428,9 @@ function qrCard(){const c=el("div",{className:"card"},el("h3",{textContent:"QR c
   el("a",{href:q.createDataURL(12,4),download:"examination-platform-qr.gif",textContent:"Download QR code",style:"color:var(--pri);font-weight:700"}),
   el("div",{textContent:"Print it on notice boards. Students scan it to open this page.",style:"color:var(--mute);margin-top:6px"}));return c}
 $("ctaTrack").onclick=()=>ptab(false);
-$("staffLink").onclick=()=>{$("pub").hidden=true;$("adm").hidden=false;boot()};
+$("staffLink").onclick=async()=>{$("pub").hidden=true;$("adm").hidden=false;await boot();
+ if(!$("login").hidden&&!$("lm").textContent){const r=await db.from("site_settings").select("key").eq("is_public",true).limit(1);
+  note($("lm"),r.error?"Cannot reach the database: "+r.error.message:"Database connection OK. Enter your admin email and password.",!r.error)}};
 $("back").onclick=()=>{$("adm").hidden=true;$("pub").hidden=false};
 init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE"))loadTeam()});
 if(location.hash==="#admin")$("staffLink").click();
