@@ -66,9 +66,13 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
 .ci label{display:flex;gap:10px;align-items:center;margin:0;font-weight:600}.ci input[type=checkbox]{width:auto}
 .ci .more{margin-top:8px}.ci .more select,.ci .more input{margin-top:6px}.ref div{font-size:1.1rem;margin:4px 0}
 .inportal #welcomeMsg,.inportal .cta,.inportal .eyebrow{display:none}.inportal header{padding:14px 16px}
+header{position:relative;overflow:hidden;background:radial-gradient(circle at 85% 15%,rgba(94,234,212,.35),transparent 42%),radial-gradient(circle at 10% 90%,rgba(20,184,166,.3),transparent 40%),linear-gradient(135deg,#04262d,#0f766e 62%,#0b4f4a)}
+header>*{position:relative;z-index:1}header .ecg{position:absolute;left:0;bottom:6px;width:100%;height:90px;opacity:.4;z-index:0}
+.ecg path{fill:none;stroke:#7ff5e0;stroke-width:3;stroke-dasharray:1600;stroke-dashoffset:1600;animation:ecg 4.5s linear infinite}
+@keyframes ecg{to{stroke-dashoffset:0}}header h1{text-shadow:0 2px 12px rgba(0,0,0,.4)}
 </style></head><body>
 <div id="pub">
-<header><div class="eyebrow">Department of Nursing and Midwifery</div>
+<header id="hero"><svg class="ecg" viewBox="0 0 800 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70H120l15-40 20 80 20-70 12 30H330l15-40 20 80 20-70 12 30H540l15-40 20 80 20-70 12 30H800"/></svg><div class="eyebrow">&#129658; Department of Nursing and Midwifery</div>
 <h1 id="siteTitle">Welcome to the Nursing and Midwifery Department Examination Results Resolution Platform</h1>
 <p id="welcomeMsg">Your results matter to us. If an examination result is missing, incorrect, withheld or not yet uploaded, tell us here. Every report is recorded, grouped and presented to the department so it can be resolved. Fill in the required spaces, keep your reference number, and track your case until your results are released. Thank you.</p>
 <a class="cta" href="#" id="ctaReport">Report an issue</a><a class="cta o" href="#" id="ctaTrack">Track my case</a></header>
@@ -171,7 +175,7 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
   <select id="fc"></select><select id="fl"><option value="">All levels</option><option>100</option><option>200</option><option>300</option><option>400</option></select>
   <select id="fs"><option value="">All semesters</option><option value="1">First Semester</option><option value="2">Second Semester</option></select>
   <select id="fk"></select><select id="ft"></select></div>
-  <button class="b" id="apply">Search</button> <button class="b g" id="prt">Print</button> <button class="b g" id="xls">Download Excel</button> <button class="b g" id="csv">Export CSV</button> <span id="cnt"></span><div id="cm"></div></div>
+  <button class="b" id="apply">Search</button> <button class="b g" id="prt">Print / Save as PDF</button> <button class="b g" id="xls">Download Excel</button> <button class="b g" id="csv">Export CSV</button> <span id="cnt"></span><div id="cm"></div></div>
  <div class="card"><div id="ph"></div><div id="tbWrap"></div></div>
  <div id="detail" class="card" hidden></div>
 </section>
@@ -227,12 +231,13 @@ function demoClient(){
  const cnt=f=>T.v_cases_full.reduce((o,r)=>{const k=f(r);o[k]=(o[k]||0)+1;return o},{});
  const rpc=async(n,a)=>{const c=T.v_cases_full;
   if(n==="dashboard_stats")return{data:{total_cases:c.length,unique_students:new Set(c.map(r=>r.index_number)).size,active_courses:T.courses.filter(x=>x.is_active).length,batches_represented:new Set(c.map(r=>r.batch_label)).size,by_level:cnt(r=>r.affected_level),by_semester:cnt(r=>r.affected_semester),by_status:cnt(r=>r.status_name),top_courses:Object.entries(cnt(r=>r.course_name)).map(([course,cases])=>({course,cases}))},error:null};
+  if(n==="admin_delete_case"){const i=c.findIndex(x=>x.id===a.p_case_id);if(i>-1)c.splice(i,1);return{data:{status:"ok"},error:null}}
   if(n==="submit_cases")return{data:{status:"ok",cases:a.p_items.map(x=>({status:"ok",reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id(),course_id:x.course_id}))},error:null};
   if(n==="submit_case")return{data:{status:"ok",reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id()},error:null};
   if(n==="track_case")return{data:{status:"ok",case_status:"Under Review",course:"Anatomy",level:200,semester:1,submitted:new Date().toISOString(),last_updated:new Date().toISOString()},error:null};
   return{data:{status:"ok"},error:null}};
  return{from,rpc,auth:{signInWithPassword:async()=>{inn=true;return{data:{},error:null}},getSession:async()=>({data:{session:inn?{user:{id:"demo"}}:null}}),signOut:async()=>{inn=false;return{}}},
-  storage:{from:()=>({upload:async()=>({error:null}),createSignedUrl:async()=>({data:null})})}}}
+  storage:{from:()=>({remove:async()=>({error:null}),upload:async()=>({error:null}),createSignedUrl:async()=>({data:null})})}}}
 
 let me=null,lk={courses:[],cats:[],sts:[]},rows=[];
 const note=(box,t,ok)=>{box.replaceChildren(t?el("div",{className:"amsg"+(ok?" ok":""),textContent:t}):"")};
@@ -278,29 +283,52 @@ function filt(){let q=db.from("v_cases_full").select("*").order("admission_year"
  if($("ft").value)q=q.eq("status_id",$("ft").value);return q}
 async function loadCases(){const {data,error}=await filt();if(error)return note($("cm"),"Could not load cases.");rows=data;
  $("cnt").textContent=rows.length+" case(s), "+new Set(rows.map(r=>r.index_number)).size+" unique student(s)";
- const wrap=$("tbWrap");wrap.replaceChildren();const by={};rows.forEach(r=>{(by[r.batch_label]=by[r.batch_label]||[]).push(r)});
+ drawRows(rows)}
+function drawRows(list){const wrap=$("tbWrap");wrap.replaceChildren();const by={};list.forEach(r=>{(by[r.batch_label]=by[r.batch_label]||[]).push(r)});
  Object.keys(by).forEach(bl=>{const rs=by[bl];
   const t=el("table",{},el("tr",{},...["Reference","Student","Index","Level","Sem","Category","Status"].map(h=>el("th",{textContent:h}))));let g="";
   rs.forEach(r=>{if(r.course_name!==g){g=r.course_name;t.append(el("tr",{className:"gh"},el("td",{colSpan:7,textContent:"Course: "+g})))}
    const tr=el("tr",{className:"r"},...[r.reference_number,r.full_name,r.index_number,"L"+r.affected_level,r.affected_semester,r.category_name,r.status_name].map(x=>el("td",{textContent:x})));tr.onclick=()=>detail(r);t.append(tr)});
   wrap.append(el("section",{className:"batch"},el("h3",{textContent:bl+"  ("+rs.length+" case(s), "+new Set(rs.map(x=>x.index_number)).size+" student(s))"}),el("div",{className:"wrap"},t)))})}
 $("apply").onclick=loadCases;
-$("prt").onclick=()=>{const f=[["fy","Year"],["fi","Intake"],["fc","Course"],["fl","Level"],["fs","Semester"],["fk","Issue"],["ft","Status"]].filter(([i])=>$(i).value).map(([i,l])=>l+": "+$(i).selectedOptions[0].text).join(", ")||"All records";
- $("ph").replaceChildren(el("h2",{textContent:"EXAMINATION ISSUES REPORT"}),el("div",{textContent:"Filters: "+f+" | Generated: "+new Date().toLocaleString()+" | "+$("cnt").textContent}));window.print()};
-$("xls").onclick=async()=>{if(!rows.length)return note($("cm"),"No cases to export. Press Search first.");
+function pickBatch(title,go){if(!rows.length)return note($("cm"),"No cases to export. Press Search first.");
+ const mk=(first,opts)=>{const x=el("select",{style:"width:100%;margin:4px 0 10px"});x.append(new Option(first,""));opts.forEach(o=>x.append(new Option(o[1],o[0])));return x};
+ const yrs=[...new Set(rows.map(r=>r.admission_year))].sort();
+ const sy=mk("All years",yrs.map(y=>[String(y),"Year "+y])),si=mk("Both intakes (January and September)",[["January","January intake"],["September","September intake"]]),sc=mk("All courses (shown course by course)",[]);
+ const info=el("div",{style:"margin:6px 0 10px;color:var(--mute)"});
+ const sub=()=>rows.filter(r=>(!sy.value||String(r.admission_year)===sy.value)&&(!si.value||r.intake===si.value));
+ const fin=()=>sub().filter(r=>!sc.value||r.course_name===sc.value);
+ const cnt=()=>{info.textContent=fin().length+" case(s) will be included."};
+ const fillC=()=>{const cur=sc.value,cs=[...new Set(sub().map(r=>r.course_name))].sort();sc.replaceChildren(new Option("All courses (shown course by course)",""));cs.forEach(c=>sc.append(new Option(c,c)));if(cs.includes(cur))sc.value=cur;cnt()};
+ sy.onchange=fillC;si.onchange=fillC;sc.onchange=cnt;fillC();
+ const ok=el("button",{className:"b",textContent:title}),no=el("button",{className:"b g",textContent:"Cancel"});
+ const ov=el("div",{className:"noprint",id:"batchDlg",style:"position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50"},
+  el("div",{className:"card",style:"width:min(92vw,400px)"},el("h3",{textContent:"What do you want?"}),"Year",sy,"Intake",si,"Course",sc,info,el("div",{className:"arow"},ok,no)));
+ no.onclick=()=>ov.remove();
+ ok.onclick=()=>{const f=fin();if(!f.length)return;const lab=[sy.value||"All years",si.value||"Both intakes",sc.value||"All courses"].join(" ");ov.remove();go(f,lab)};
+ document.body.append(ov)}
+$("prt").onclick=()=>pickBatch("Print / Save as PDF",(sub,lab)=>{const f=[["fy","Year"],["fi","Intake"],["fc","Course"],["fl","Level"],["fs","Semester"],["fk","Issue"],["ft","Status"]].filter(([i])=>$(i).value).map(([i,l])=>l+": "+$(i).selectedOptions[0].text).join(", ")||"None";
+ $("ph").replaceChildren(el("h2",{textContent:"EXAMINATION ISSUES REPORT"}),el("div",{textContent:"Batch: "+lab+" | Other filters: "+f+" | Generated: "+new Date().toLocaleString()+" | "+sub.length+" case(s)"}));
+ drawRows(sub);const back=()=>{drawRows(rows);$("ph").replaceChildren();window.removeEventListener("afterprint",back)};window.addEventListener("afterprint",back);window.print()});
+$("xls").onclick=()=>pickBatch("Download Excel",runXls);
+async function runXls(rows,lab){if(!rows.length)return note($("cm"),"No cases to export.");
  const {error}=await db.rpc("log_export",{p_description:"Excel: "+rows.length+" rows"});if(error)return note($("cm"),"Your role may not export records.");
  if(typeof XLSX==="undefined")return note($("cm"),"The Excel tool did not load. Use Export CSV instead.");
  const H=["Reference","Name","Index","Admission year","Intake","Course","Current level","Affected level","Semester","Issue","Status","Description","Submitted"];
  const wb=XLSX.utils.book_new(),by={};rows.forEach(r=>{(by[r.batch_label]=by[r.batch_label]||[]).push(r)});
- Object.keys(by).forEach(k=>{const ws=XLSX.utils.aoa_to_sheet([H].concat(by[k].map(r=>[r.reference_number,r.full_name,r.index_number,r.admission_year,r.intake,r.course_name,r.current_level,r.affected_level,r.affected_semester,r.category_name,r.status_name,r.description,r.created_at])));
-  ws["!cols"]=H.map((h,i)=>({wch:[16,24,16,10,11,22,9,9,9,30,22,50,22][i]}));XLSX.utils.book_append_sheet(wb,ws,k.replace(/[\\/?*\[\]:]/g,"").slice(0,31))});
- XLSX.writeFile(wb,"exam-issues-by-batch-"+new Date().toISOString().slice(0,10)+".xlsx");note($("cm"),"Excel file downloaded: one sheet for each batch.",true)};
-$("csv").onclick=async()=>{const {error}=await db.rpc("log_export",{p_description:"CSV: "+rows.length+" rows"});
+ Object.keys(by).forEach(k=>{const aoa=[["EXAMINATION ISSUES REPORT - "+k+"   (filter: "+lab+")"],[]],cs={};by[k].forEach(r=>{(cs[r.course_name]=cs[r.course_name]||[]).push(r)});
+  Object.keys(cs).sort().forEach(c=>{aoa.push(["COURSE: "+c+"  ("+cs[c].length+" case(s))"]);aoa.push(H);
+   cs[c].forEach(r=>aoa.push([r.reference_number,r.full_name,r.index_number,r.admission_year,r.intake,r.course_name,r.current_level,r.affected_level,r.affected_semester,r.category_name,r.status_name,r.description,r.created_at]));aoa.push([])});
+  const ws=XLSX.utils.aoa_to_sheet(aoa);ws["!cols"]=H.map((h,i)=>({wch:[16,24,16,10,11,22,9,9,9,30,22,50,22][i]}));
+  XLSX.utils.book_append_sheet(wb,ws,k.replace(/[\\/?*\[\]:]/g,"").slice(0,31))});
+ XLSX.writeFile(wb,"exam-issues-"+lab.replace(/[^A-Za-z0-9]+/g,"-")+"-"+new Date().toISOString().slice(0,10)+".xlsx");note($("cm"),"Excel file downloaded: "+lab+".",true)}
+$("csv").onclick=()=>pickBatch("Download CSV",runCsv);
+async function runCsv(rows,lab){const {error}=await db.rpc("log_export",{p_description:"CSV: "+rows.length+" rows"});
  if(error)return note($("cm"),"Your role may not export records.");
  const safe=v=>{v=String(v??"");if(/^[=+\-@\t\r]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
  const H=["Reference","Name","Index","Admission year","Intake","Course","Current level","Affected level","Semester","Issue","Status","Description","Submitted"];
  const L=[H.map(safe).join(",")].concat(rows.map(r=>[r.reference_number,r.full_name,r.index_number,r.admission_year,r.intake,r.course_name,r.current_level,r.affected_level,r.affected_semester,r.category_name,r.status_name,r.description,r.created_at].map(safe).join(",")));
- const a=el("a",{href:URL.createObjectURL(new Blob([L.join("\n")],{type:"text/csv"})),download:"exam-issues-"+new Date().toISOString().slice(0,10)+".csv"});a.click()};
+ const a=el("a",{href:URL.createObjectURL(new Blob([L.join("\n")],{type:"text/csv"})),download:"exam-issues-"+lab.replace(/[^A-Za-z0-9]+/g,"-")+"-"+new Date().toISOString().slice(0,10)+".csv"});a.click()}
 
 async function detail(r){const d=$("detail");d.hidden=false;d.scrollIntoView();
  const [n,h,docs]=await Promise.all([db.from("case_notes").select("note,created_at").eq("case_id",r.id).order("created_at"),
@@ -313,12 +341,18 @@ async function detail(r){const d=$("detail");d.hidden=false;d.scrollIntoView();
  const nb=el("button",{className:"b",textContent:"Add note"});nb.onclick=async()=>{if(!ta.value.trim())return;
   const {error}=await db.from("case_notes").insert({case_id:r.id,author_id:me.id,note:ta.value.trim()});if(error)return note(m,"Could not save note.");detail(r)};
  const m=el("div"),dl=el("div");
+ const del=el("button",{className:"b g",textContent:"Delete report",style:"color:var(--bad);border-color:var(--bad)"});
+ del.onclick=async()=>{if(!confirm("Permanently delete report "+r.reference_number+" for "+r.full_name+"? This cannot be undone."))return;
+  const paths=(docs.data||[]).map(x=>x.storage_path);if(paths.length)await db.storage.from("case-documents").remove(paths);
+  const {data,error}=await db.rpc("admin_delete_case",{p_case_id:r.id});
+  if(error||(data&&data.status!=="ok"))return note(m,"Could not delete (check your role).");
+  d.hidden=true;note($("cm"),"Report deleted.",true);loadCases()};
  (docs.data||[]).forEach(async x=>{const {data}=await db.storage.from("case-documents").createSignedUrl(x.storage_path,300);
   if(data)dl.append(el("div",{},el("a",{href:data.signedUrl,target:"_blank",rel:"noopener",textContent:x.original_name})))});
  d.replaceChildren(el("h3",{textContent:r.reference_number+" | "+r.full_name+" ("+r.index_number+")"}),
   el("div",{textContent:r.batch_label+" | "+r.course_name+" | Level "+r.affected_level+", Semester "+r.affected_semester+" (current level "+r.current_level+")"}),
   el("div",{textContent:"Issue: "+r.category_name+(r.other_explanation?" - "+r.other_explanation:"")}),el("p",{textContent:r.description}),
-  el("b",{textContent:"Documents"}),dl,el("div",{className:"arow"},sel,ub),m,
+  el("b",{textContent:"Documents"}),dl,el("div",{className:"arow"},sel,ub,...(me.role==="viewer"?[]:[del])),m,
   el("b",{textContent:"Status history"}),...(h.data||[]).map(x=>el("div",{textContent:new Date(x.changed_at).toLocaleString()+": "+nm(lk.sts,x.new_status_id)})),
   el("b",{textContent:"Internal notes"}),...(n.data||[]).map(x=>el("div",{textContent:new Date(x.created_at).toLocaleString()+": "+x.note})),ta,nb)}
 
@@ -370,6 +404,7 @@ async function init(){
     categories = k.data; courseRows = c.data; buildCourses(courseRows);
     s.data.forEach(r=>{ cfg[r.key]=r.value; });
     if(cfg.site_title) document.title=cfg.site_title;
+    if(typeof cfg.hero_image==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(cfg.hero_image)) $("hero").style.background="linear-gradient(rgba(4,36,42,.72),rgba(4,36,42,.72)),url("+cfg.hero_image+") center/cover";
     if(cfg.welcome_title) $("siteTitle").textContent=cfg.welcome_title;
     if(cfg.welcome_message) $("welcomeMsg").textContent=cfg.welcome_message;
     if(cfg.reporting_instructions) $("instructions").textContent=cfg.reporting_instructions;
@@ -473,7 +508,7 @@ async function website(){const v=$("v-site");const {data:s}=await db.from("site_
  sv.onclick=async()=>{const r=(k,val)=>({key:k,value:val,is_public:true,updated_by:me.id});
   const {error}=await db.from("site_settings").upsert([r("welcome_title",t.value),r("welcome_message",m.value),r("reporting_instructions",ins.value)]);
   note(msg,error?"Only the super administrator can change this.":"Saved. Refresh the public page to see it.",!error)};
- const tm=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),qrCard(),el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
+ const tm=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),heroCard(),qrCard(),el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
  await teamEditor(tm)}
 async function teamEditor(box){const {data}=await db.from("team_members").select("*").order("sort_order").order("role_title");const m=el("div");
  const add=el("button",{className:"b g",textContent:"+ Add team member"});
@@ -491,6 +526,11 @@ async function teamEditor(box){const {data}=await db.from("team_members").select
   const dl=el("button",{className:"b g",textContent:"Delete member"});
   dl.onclick=async()=>{if(!confirm("Delete this team member?"))return;const {error}=await db.from("team_members").delete().eq("id",x.id);if(error)return note(m,"Only the super administrator can delete.");website()};
   return el("div",{className:"card"},el("div",{className:"arow"},img,el("div",{style:"flex:1"},ti,na)),el("div",{className:"arow"},ms),el("div",{className:"arow"},fi,rp,el("label",{},ac," Show on site")," Order ",or),el("div",{className:"arow"},sv,dl))}))}
+function heroCard(){const msg=el("div"),fi=el("input",{type:"file",accept:"image/jpeg,image/png,image/webp"});
+ const save=async v=>{const {error}=await db.from("site_settings").upsert([{key:"hero_image",value:v,is_public:true,updated_by:me.id}]);note(msg,error?"Only the super administrator can change this.":(v?"Banner picture saved. Refresh the public page to see it.":"Banner picture removed."),!error)};
+ fi.onchange=()=>{const f=fi.files[0];if(!f)return;if(!["image/jpeg","image/png","image/webp"].includes(f.type)||f.size>204800){fi.value="";return note(msg,"Picture must be JPG, PNG or WebP and at most 200 KB.")}const r=new FileReader();r.onload=()=>save(r.result);r.readAsDataURL(f)};
+ const rm=el("button",{className:"b g",textContent:"Remove picture"});rm.onclick=()=>save("");
+ return el("div",{className:"card"},el("h3",{textContent:"Welcome banner picture"}),el("div",{textContent:"Upload a photo of a nurse at work, for example in the ICU. Use your own photo or a free-to-use one. Maximum 200 KB.",style:"color:var(--mute);margin-bottom:8px"}),fi,rm,msg)}
 function qrCard(){const c=el("div",{className:"card"},el("h3",{textContent:"QR code for this website"}));const url=location.href.split("#")[0];
  if(typeof qrcode==="undefined"){c.append("The QR library did not load. Refresh and try again.");return c}
  const q=qrcode(0,"M");q.addData(url);q.make();
