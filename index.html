@@ -61,6 +61,7 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
 .cta.o{background:transparent;color:#fff}
 .tm em{display:block;color:var(--mute);font-size:.85rem;margin-top:6px}
 .tm .av{width:110px;height:110px}.steps .card{margin:0}.steps{margin-bottom:14px}
+.dot{width:12px;height:12px;border-radius:50%;border:0;background:var(--line);opacity:.5;margin-top:18px;padding:0;cursor:pointer}.dot:hover{opacity:1}
 </style></head><body>
 <div id="pub">
 <header><div class="eyebrow">Department of Nursing and Midwifery</div>
@@ -148,7 +149,7 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
     </div>
   </section>
 </main>
-<footer>Your details are only seen by authorised administrators.<br><br><button class="sec" id="staffLink" type="button">Staff login</button></footer>
+<footer>Your details are only seen by authorised administrators.<br><button class="dot" id="staffLink" type="button" aria-label="Staff" title=""></button></footer>
 
 </div>
 <div id="adm" hidden>
@@ -187,12 +188,56 @@ const SUPABASE_ANON_KEY="sb_publishable_m-wY_RbuqGDySB-tckEgEQ_uRq9d-mt"; // ano
 // =========================================================================
 const $=id=>document.getElementById(id);
 const el=(t,p={},...k)=>{const e=document.createElement(t);Object.assign(e,p);k.forEach(x=>e.append(x));return e};
-const db=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const DEMO=location.hash==="#demo";
+// Some browsers/previews cannot pass Headers objects around; this converts them to plain text first.
+const safeFetch=(url,opts)=>{opts=opts||{};if(typeof Headers!=="undefined"&&opts.headers instanceof Headers){const h={};opts.headers.forEach((v,k)=>{h[k]=v});opts=Object.assign({},opts,{headers:h})}return fetch(url,opts)};
+const db=DEMO?demoClient():supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{global:{fetch:safeFetch}});
+if(DEMO)document.body.insertAdjacentHTML("afterbegin",'<p style="background:#8a5a00;color:#fff;margin:0;padding:8px;text-align:center;font-size:14px;position:sticky;top:0;z-index:9">DEMO MODE: sample data only. Nothing is saved or sent. Remove #demo from the web address for the real site.</p>');
+// ---- Demo: a fake in-memory database so you can try the whole site. It never touches Supabase.
+function demoClient(){
+ const id=()=>"d"+Math.random().toString(36).slice(2,9);let inn=false;
+ const ST=[["s1","New"],["s2","Under Review"],["s3","More Information Required"],["s4","Submitted to Department"],["s5","Resolved"],["s6","Declined"]];
+ const CO=["Anatomy","Physiology","Pharmacology","Pathology","Basic Nursing","First Aid"];
+ const KA=["Missing examination results","Incorrect examination results","Results not uploaded","Other examination-related issue"];
+ const T={admin_profiles:[{user_id:"demo",full_name:"Demo Admin",role:"super_admin",is_active:true}],
+  courses:CO.map((n,i)=>({id:"c"+i,name:n,is_active:true})),
+  issue_categories:KA.map((n,i)=>({id:"k"+i,name:n,requires_explanation:i===3,sort_order:i*10,is_active:true})),
+  case_statuses:ST.map((a,i)=>({id:a[0],name:a[1],sort_order:i*10,is_active:true})),
+  case_notes:[],case_status_history:[],case_documents:[],
+  site_settings:[{key:"welcome_title",value:"Welcome to the Nursing and Midwifery Department Examination Results Resolution Platform",is_public:true},{key:"max_upload_mb",value:5,is_public:true},{key:"allowed_mime_types",value:["image/jpeg","image/png","application/pdf"],is_public:true},{key:"max_files_per_case",value:3,is_public:true},{key:"tracking_enabled",value:true,is_public:true}],
+  team_members:[["Head of Department (HOD)","Dr. Sample Name","Your success is our priority."],["Administrator","Sample Administrator",""],["Nursing Coordinator","Sample Coordinator",""],["Clinical Coordinator","Sample Clinical Coordinator",""]].map((a,i)=>({id:"t"+i,role_title:a[0],full_name:a[1],message:a[2],photo:null,sort_order:i*10,is_active:true}))};
+ const NM=["Ama Mensah","Kofi Boateng","Esi Quaye","Yaw Owusu","Abena Asare","Kwame Darko","Efua Addo","Nana Appiah"];
+ T.v_cases_full=T.cases=NM.map((n,i)=>{const yr=2022+i%3,it=i%2?"September":"January",L=[100,200,300,400][i%4];return{id:"x"+i,reference_number:"EX-DEMO"+(1000+i),full_name:n,index_number:"NMS/"+yr+"/"+(100+i),admission_year:yr,intake:it,batch_label:yr+" - "+it+" Intake",course_id:"c"+i%6,course_name:CO[i%6],category_id:"k"+i%3,category_name:KA[i%3],other_explanation:null,status_id:ST[i%3][0],status_name:ST[i%3][1],current_level:400,affected_level:L,affected_semester:1+i%2,description:"Sample description of an examination problem for demonstration.",document_count:0,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}});
+ const from=t=>{const q={f:[],op:"select",pl:null,one:false,lim:1e9,ord:null},b={};
+  const match=r=>q.f.every(([k,v])=>String(r[k])===String(v));
+  b.select=()=>b;b.or=()=>b;b.eq=(k,v)=>{q.f.push([k,v]);return b};b.limit=n=>{q.lim=n;return b};b.order=k=>{if(!q.ord)q.ord=k;return b};
+  b.insert=r=>{q.op="insert";q.pl=r;return b};b.update=r=>{q.op="update";q.pl=r;return b};b.delete=()=>{q.op="delete";return b};b.upsert=r=>{q.op="upsert";q.pl=r;return b};
+  const run=async()=>{const a=T[t]||(T[t]=[]);let d=null;
+   if(q.op==="insert"){const r={id:id(),is_active:true,sort_order:99,photo:null,message:"",full_name:"",...q.pl};a.push(r);d=[r]}
+   else if(q.op==="update"){a.filter(match).forEach(r=>{Object.assign(r,q.pl);if(t==="cases"&&q.pl.status_id)r.status_name=(T.case_statuses.find(x=>x.id===q.pl.status_id)||{}).name})}
+   else if(q.op==="delete"){T[t]=a.filter(r=>!match(r))}
+   else if(q.op==="upsert"){[].concat(q.pl).forEach(r=>{const o=a.find(x=>x.key===r.key);o?Object.assign(o,r):a.push(r)})}
+   else{d=a.filter(match);if(q.ord)d=d.slice().sort((x,y)=>String(x[q.ord]).localeCompare(String(y[q.ord]),undefined,{numeric:true}));d=d.slice(0,q.lim);if(q.one)d=d[0]||null}
+   return{data:d,error:null}};
+  b.maybeSingle=()=>{q.one=true;return run()};b.then=(a,c)=>run().then(a,c);return b};
+ const cnt=f=>T.v_cases_full.reduce((o,r)=>{const k=f(r);o[k]=(o[k]||0)+1;return o},{});
+ const rpc=async(n)=>{const c=T.v_cases_full;
+  if(n==="dashboard_stats")return{data:{total_cases:c.length,unique_students:new Set(c.map(r=>r.index_number)).size,active_courses:T.courses.filter(x=>x.is_active).length,batches_represented:new Set(c.map(r=>r.batch_label)).size,by_level:cnt(r=>r.affected_level),by_semester:cnt(r=>r.affected_semester),by_status:cnt(r=>r.status_name),top_courses:Object.entries(cnt(r=>r.course_name)).map(([course,cases])=>({course,cases}))},error:null};
+  if(n==="submit_case")return{data:{status:"ok",reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id()},error:null};
+  if(n==="track_case")return{data:{status:"ok",case_status:"Under Review",course:"Anatomy",level:200,semester:1,submitted:new Date().toISOString(),last_updated:new Date().toISOString()},error:null};
+  return{data:{status:"ok"},error:null}};
+ return{from,rpc,auth:{signInWithPassword:async()=>{inn=true;return{data:{},error:null}},getSession:async()=>({data:{session:inn?{user:{id:"demo"}}:null}}),signOut:async()=>{inn=false;return{}}},
+  storage:{from:()=>({upload:async()=>({error:null}),createSignedUrl:async()=>({data:null})})}}}
+
 let me=null,lk={courses:[],cats:[],sts:[]},rows=[];
 const note=(box,t,ok)=>{box.replaceChildren(t?el("div",{className:"amsg"+(ok?" ok":""),textContent:t}):"")};
 const nm=(a,id)=>(a.find(x=>x.id===id)||{}).name||"";
 
-$("go").onclick=async()=>{const {error}=await db.auth.signInWithPassword({email:$("em").value,password:$("pw").value});
+let fails=0,lockUntil=0;
+$("pw").addEventListener("keydown",e=>{if(e.key==="Enter")$("go").click()});
+$("go").onclick=async()=>{if(Date.now()<lockUntil)return note($("lm"),"Too many attempts. Please wait one minute and try again.");
+ const {error}=await db.auth.signInWithPassword({email:$("em").value.trim(),password:$("pw").value});
+ if(error){if(++fails>=5){lockUntil=Date.now()+60000;fails=0}}else fails=0;
  if(error)return note($("lm"),"Sign in failed: "+error.message+(/confirm/i.test(error.message)?" (In Supabase open Authentication > Users, open this user and confirm the email.)":""));$("pw").value="";boot()};
 $("out").onclick=async()=>{await db.auth.signOut();location.reload()};
 async function boot(){
@@ -430,7 +475,7 @@ function qrCard(){const c=el("div",{className:"card"},el("h3",{textContent:"QR c
 $("ctaTrack").onclick=()=>ptab(false);
 $("staffLink").onclick=async()=>{$("pub").hidden=true;$("adm").hidden=false;await boot();
  if(!$("login").hidden&&!$("lm").textContent){const r=await db.from("site_settings").select("key").eq("is_public",true).limit(1);
-  note($("lm"),r.error?"Cannot reach the database: "+r.error.message:"Database connection OK. Enter your admin email and password.",!r.error)}};
+  note($("lm"),r.error?"Cannot reach the database ("+SUPABASE_URL.replace("https://","")+"): "+r.error.message+". Check that the Supabase project is not paused, and open "+SUPABASE_URL+"/rest/v1/ in a new tab as a test.":(DEMO?"Demo mode: type any email and any password to enter.":"Database connection OK. Enter your admin email and password."),!r.error)}};
 $("back").onclick=()=>{$("adm").hidden=true;$("pub").hidden=false};
 init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE"))loadTeam()});
 if(location.hash==="#admin")$("staffLink").click();
