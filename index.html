@@ -47,7 +47,7 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{border-bottom:1p
 .arow{display:flex;gap:8px;align-items:center;margin:6px 0}.arow input[type=text]{flex:1}.off{opacity:.55}
 #login{max-width:340px;margin:60px auto}#login input{width:100%;margin:6px 0}
 #ph{display:none}
-@media print{nav,.noprint,#detail{display:none!important}#ph{display:block;margin-bottom:10px}body{background:#fff;color:#000}.card{border:0}}
+@media print{.batch{break-after:page}.batch:last-child{break-after:auto}.batch h3{margin:0 0 6px}nav,.noprint,#detail{display:none!important}#ph{display:block;margin-bottom:10px}body{background:#fff;color:#000}.card{border:0}}
 
 #app main{max-width:1100px}
 
@@ -62,19 +62,27 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
 .tm em{display:block;color:var(--mute);font-size:.85rem;margin-top:6px}
 .tm .av{width:110px;height:110px}.steps .card{margin:0}.steps{margin-bottom:14px}
 .dot{width:12px;height:12px;border-radius:50%;border:0;background:var(--line);opacity:.5;margin-top:18px;padding:0;cursor:pointer}.dot:hover{opacity:1}
+.clist .ci{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0}
+.ci label{display:flex;gap:10px;align-items:center;margin:0;font-weight:600}.ci input[type=checkbox]{width:auto}
+.ci .more{margin-top:8px}.ci .more select,.ci .more input{margin-top:6px}.ref div{font-size:1.1rem;margin:4px 0}
+.inportal #welcomeMsg,.inportal .cta,.inportal .eyebrow{display:none}.inportal header{padding:14px 16px}
 </style></head><body>
 <div id="pub">
 <header><div class="eyebrow">Department of Nursing and Midwifery</div>
 <h1 id="siteTitle">Welcome to the Nursing and Midwifery Department Examination Results Resolution Platform</h1>
 <p id="welcomeMsg">Your results matter to us. If an examination result is missing, incorrect, withheld or not yet uploaded, tell us here. Every report is recorded, grouped and presented to the department so it can be resolved. Fill in the required spaces, keep your reference number, and track your case until your results are released. Thank you.</p>
-<a class="cta" href="#start">Report an issue</a><a class="cta o" href="#start" id="ctaTrack">Track my case</a></header>
+<a class="cta" href="#" id="ctaReport">Report an issue</a><a class="cta o" href="#" id="ctaTrack">Track my case</a></header>
 <main>
+<div id="home">
 <div class="grid steps">
 <div class="card"><b>1. Report</b><br><small>Fill in your details, the course, the level and semester, and describe the problem.</small></div>
 <div class="card"><b>2. Keep your reference</b><br><small>You receive a private reference number as soon as you submit.</small></div>
 <div class="card"><b>3. Track</b><br><small>Use the reference number any time to see where your case has reached.</small></div></div>
 <section class="card" id="teamCard"><h2 style="margin-top:0">Meet Our Department Leadership</h2><div class="grid" id="teamGrid"></div></section>
-  <div class="tabs" id="start">
+</div>
+<div id="portal" hidden>
+<button class="sec" id="backHome" type="button">&larr; Back to welcome page</button>
+  <div class="tabs" id="start" style="margin-top:12px">
     <button id="tabReport" class="on" type="button">Report an issue</button>
     <button id="tabTrack" type="button">Track my case</button>
   </div>
@@ -110,15 +118,9 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
         </fieldset>
 
         <fieldset><legend>3. The problem</legend>
-          <label for="course">Course affected</label>
-          <select id="course" required><option value="">Loading...</option></select>
-          <label for="cat">Type of examination issue</label>
-          <select id="cat" required><option value="">Loading...</option></select>
-          <div id="otherBox" hidden>
-            <label for="other">Please explain the "Other" issue</label>
-            <input id="other" maxlength="500">
-          </div>
-          <label for="desc">Describe the problem</label>
+          <label>Courses with a problem <small>(tick EVERY course you have a challenge with in this semester, then choose the problem for each)</small></label>
+          <div id="courseList" class="clist"></div>
+          <label for="desc">Describe the problem <small>(this is saved for every ticked course)</small></label>
           <textarea id="desc" maxlength="2000" required></textarea>
           <label for="files">Supporting document or screenshot <small>(optional)</small></label>
           <input id="files" type="file" multiple>
@@ -148,6 +150,7 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
       <div id="trackOut"></div>
     </div>
   </section>
+</div>
 </main>
 <footer>Your details are only seen by authorised administrators.<br><button class="dot" id="staffLink" type="button" aria-label="Staff" title=""></button></footer>
 
@@ -168,8 +171,8 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
   <select id="fc"></select><select id="fl"><option value="">All levels</option><option>100</option><option>200</option><option>300</option><option>400</option></select>
   <select id="fs"><option value="">All semesters</option><option value="1">First Semester</option><option value="2">Second Semester</option></select>
   <select id="fk"></select><select id="ft"></select></div>
-  <button class="b" id="apply">Search</button> <button class="b g" id="prt">Print</button> <button class="b g" id="csv">Export CSV</button> <span id="cnt"></span><div id="cm"></div></div>
- <div class="card"><div id="ph"></div><div class="wrap"><table id="tb"></table></div></div>
+  <button class="b" id="apply">Search</button> <button class="b g" id="prt">Print</button> <button class="b g" id="xls">Download Excel</button> <button class="b g" id="csv">Export CSV</button> <span id="cnt"></span><div id="cm"></div></div>
+ <div class="card"><div id="ph"></div><div id="tbWrap"></div></div>
  <div id="detail" class="card" hidden></div>
 </section>
 <section id="v-site" hidden></section><section id="v-courses" hidden></section><section id="v-cats" hidden></section>
@@ -179,6 +182,7 @@ header{background:linear-gradient(135deg,#0f766e,#0b4f4a)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.js"></script>
 <script>window.supabase||document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"><\/script>')</script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 window.addEventListener("error",e=>{document.body.insertAdjacentHTML("afterbegin",'<p style="background:#b3261e;color:#fff;padding:10px;margin:0;font-size:14px">Page error: '+String(e.message).replace(/</g,"&lt;")+"</p>")});
 if(typeof supabase==="undefined"){document.body.insertAdjacentHTML("afterbegin",'<p style="background:#b3261e;color:#fff;padding:12px;margin:0">The page could not load its database library. Check your internet connection and refresh.</p>');}
@@ -221,8 +225,9 @@ function demoClient(){
    return{data:d,error:null}};
   b.maybeSingle=()=>{q.one=true;return run()};b.then=(a,c)=>run().then(a,c);return b};
  const cnt=f=>T.v_cases_full.reduce((o,r)=>{const k=f(r);o[k]=(o[k]||0)+1;return o},{});
- const rpc=async(n)=>{const c=T.v_cases_full;
+ const rpc=async(n,a)=>{const c=T.v_cases_full;
   if(n==="dashboard_stats")return{data:{total_cases:c.length,unique_students:new Set(c.map(r=>r.index_number)).size,active_courses:T.courses.filter(x=>x.is_active).length,batches_represented:new Set(c.map(r=>r.batch_label)).size,by_level:cnt(r=>r.affected_level),by_semester:cnt(r=>r.affected_semester),by_status:cnt(r=>r.status_name),top_courses:Object.entries(cnt(r=>r.course_name)).map(([course,cases])=>({course,cases}))},error:null};
+  if(n==="submit_cases")return{data:{status:"ok",cases:a.p_items.map(x=>({status:"ok",reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id(),course_id:x.course_id}))},error:null};
   if(n==="submit_case")return{data:{status:"ok",reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id()},error:null};
   if(n==="track_case")return{data:{status:"ok",case_status:"Under Review",course:"Anatomy",level:200,semester:1,submitted:new Date().toISOString(),last_updated:new Date().toISOString()},error:null};
   return{data:{status:"ok"},error:null}};
@@ -273,14 +278,23 @@ function filt(){let q=db.from("v_cases_full").select("*").order("admission_year"
  if($("ft").value)q=q.eq("status_id",$("ft").value);return q}
 async function loadCases(){const {data,error}=await filt();if(error)return note($("cm"),"Could not load cases.");rows=data;
  $("cnt").textContent=rows.length+" case(s), "+new Set(rows.map(r=>r.index_number)).size+" unique student(s)";
- const tb=$("tb");tb.replaceChildren(el("tr",{},...["Reference","Student","Index","Level","Sem","Category","Status"].map(h=>el("th",{textContent:h}))));
- let g="";rows.forEach(r=>{const key=r.batch_label+" / "+r.course_name;
-  if(key!==g){g=key;tb.append(el("tr",{className:"gh"},el("td",{colSpan:7,textContent:r.batch_label+"  |  Course: "+r.course_name})))}
-  const tr=el("tr",{className:"r"},...[r.reference_number,r.full_name,r.index_number,"L"+r.affected_level,r.affected_semester,r.category_name,r.status_name].map(x=>el("td",{textContent:x})));
-  tr.onclick=()=>detail(r);tb.append(tr)})}
+ const wrap=$("tbWrap");wrap.replaceChildren();const by={};rows.forEach(r=>{(by[r.batch_label]=by[r.batch_label]||[]).push(r)});
+ Object.keys(by).forEach(bl=>{const rs=by[bl];
+  const t=el("table",{},el("tr",{},...["Reference","Student","Index","Level","Sem","Category","Status"].map(h=>el("th",{textContent:h}))));let g="";
+  rs.forEach(r=>{if(r.course_name!==g){g=r.course_name;t.append(el("tr",{className:"gh"},el("td",{colSpan:7,textContent:"Course: "+g})))}
+   const tr=el("tr",{className:"r"},...[r.reference_number,r.full_name,r.index_number,"L"+r.affected_level,r.affected_semester,r.category_name,r.status_name].map(x=>el("td",{textContent:x})));tr.onclick=()=>detail(r);t.append(tr)});
+  wrap.append(el("section",{className:"batch"},el("h3",{textContent:bl+"  ("+rs.length+" case(s), "+new Set(rs.map(x=>x.index_number)).size+" student(s))"}),el("div",{className:"wrap"},t)))})}
 $("apply").onclick=loadCases;
 $("prt").onclick=()=>{const f=[["fy","Year"],["fi","Intake"],["fc","Course"],["fl","Level"],["fs","Semester"],["fk","Issue"],["ft","Status"]].filter(([i])=>$(i).value).map(([i,l])=>l+": "+$(i).selectedOptions[0].text).join(", ")||"All records";
  $("ph").replaceChildren(el("h2",{textContent:"EXAMINATION ISSUES REPORT"}),el("div",{textContent:"Filters: "+f+" | Generated: "+new Date().toLocaleString()+" | "+$("cnt").textContent}));window.print()};
+$("xls").onclick=async()=>{if(!rows.length)return note($("cm"),"No cases to export. Press Search first.");
+ const {error}=await db.rpc("log_export",{p_description:"Excel: "+rows.length+" rows"});if(error)return note($("cm"),"Your role may not export records.");
+ if(typeof XLSX==="undefined")return note($("cm"),"The Excel tool did not load. Use Export CSV instead.");
+ const H=["Reference","Name","Index","Admission year","Intake","Course","Current level","Affected level","Semester","Issue","Status","Description","Submitted"];
+ const wb=XLSX.utils.book_new(),by={};rows.forEach(r=>{(by[r.batch_label]=by[r.batch_label]||[]).push(r)});
+ Object.keys(by).forEach(k=>{const ws=XLSX.utils.aoa_to_sheet([H].concat(by[k].map(r=>[r.reference_number,r.full_name,r.index_number,r.admission_year,r.intake,r.course_name,r.current_level,r.affected_level,r.affected_semester,r.category_name,r.status_name,r.description,r.created_at])));
+  ws["!cols"]=H.map((h,i)=>({wch:[16,24,16,10,11,22,9,9,9,30,22,50,22][i]}));XLSX.utils.book_append_sheet(wb,ws,k.replace(/[\\\/?*\[\]:]/g,"").slice(0,31))});
+ XLSX.writeFile(wb,"exam-issues-by-batch-"+new Date().toISOString().slice(0,10)+".xlsx");note($("cm"),"Excel file downloaded: one sheet for each batch.",true)};
 $("csv").onclick=async()=>{const {error}=await db.rpc("log_export",{p_description:"CSV: "+rows.length+" rows"});
  if(error)return note($("cm"),"Your role may not export records.");
  const safe=v=>{v=String(v??"");if(/^[=+\-@\t\r]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
@@ -326,7 +340,17 @@ async function manage(table,viewId,title){const v=$(viewId);const {data,error}=a
  srch.oninput=draw;draw();
  v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:title}),el("div",{className:"arow"},add,...(oth?[oth,el("small",{textContent:"needs explanation"})]:[]),ab),m,srch,list))}
 let cfg = {max_upload_mb: 5, allowed_mime_types: ["image/jpeg","image/png","application/pdf"], max_files_per_case: 3};
-let categories = [];
+let categories = [], courseRows = [];
+function buildCourses(rows){const L=$("courseList");L.replaceChildren();
+ rows.forEach(c=>{const cb=el("input",{type:"checkbox",value:c.id});
+  const sel=el("select");sel.appendChild(new Option("What is the problem?",""));categories.forEach(k=>sel.appendChild(new Option(k.name,k.id)));
+  const ot=el("input",{type:"text",maxLength:500,placeholder:"Explain the Other issue",hidden:true});
+  const more=el("div",{className:"more",hidden:true},sel,ot);
+  sel.onchange=()=>{const k=categories.find(x=>x.id===sel.value);ot.hidden=!(k&&k.requires_explanation)};
+  cb.onchange=()=>{more.hidden=!cb.checked};
+  L.append(el("div",{className:"ci"},el("label",{},cb,c.name),more));
+  c._cb=cb;c._sel=sel;c._ot=ot})}
+function pickedItems(){return courseRows.filter(c=>c._cb&&c._cb.checked).map(c=>({course_id:c.id,category_id:c._sel.value,other_explanation:c._ot.value.trim()}))}
 const EXT = {"image/jpeg":"jpg","image/png":"png","application/pdf":"pdf"};
 
 function say(el, text, kind){ el.replaceChildren(); if(!text) return; const d=document.createElement("div"); d.className="msg "+kind; d.textContent=text; el.appendChild(d); }
@@ -343,19 +367,17 @@ async function init(){
       db.from("site_settings").select("key,value").eq("is_public",true)
     ]);
     if(c.error||k.error||s.error) throw (c.error||k.error||s.error);
-    fill($("course"), c.data, "Select course");
-    categories = k.data; fill($("cat"), k.data, "Select issue type");
+    categories = k.data; courseRows = c.data; buildCourses(courseRows);
     s.data.forEach(r=>{ cfg[r.key]=r.value; });
     if(cfg.site_title) document.title=cfg.site_title;
     if(cfg.welcome_title) $("siteTitle").textContent=cfg.welcome_title;
     if(cfg.welcome_message) $("welcomeMsg").textContent=cfg.welcome_message;
     if(cfg.reporting_instructions) $("instructions").textContent=cfg.reporting_instructions;
-    $("fileHint").textContent = "Up to "+cfg.max_files_per_case+" files, "+cfg.max_upload_mb+" MB each (JPG, PNG or PDF).";
+    $("fileHint").textContent = "Up to "+cfg.max_files_per_case+" files, "+cfg.max_upload_mb+" MB each (JPG, PNG or PDF). Files are attached to the first ticked course.";
     if(cfg.tracking_enabled===false) $("tabTrack").hidden=true;
   }catch(e){ say($("loadErr"),"Could not load the form. Please refresh and try again.","bad"); $("loadErr").hidden=false; }
 }
 
-$("cat").addEventListener("change",()=>{ const c=categories.find(x=>x.id===$("cat").value); $("otherBox").hidden=!(c&&c.requires_explanation); });
 $("tabReport").onclick=()=>ptab(true); $("tabTrack").onclick=()=>ptab(false);
 function ptab(r){ $("reportView").hidden=!r; $("trackView").hidden=r; $("tabReport").classList.toggle("on",r); $("tabTrack").classList.toggle("on",!r); }
 
@@ -372,17 +394,16 @@ function checkFiles(){
 async function send(confirmDup){
   const btn=$("submitBtn"); btn.disabled=true; btn.textContent="Submitting...";
   try{
-    const {data,error}=await db.rpc("submit_case",{
+    const {data,error}=await db.rpc("submit_cases",{
       p_full_name:$("fullName").value, p_index_number:$("indexNo").value,
       p_admission_year:+$("year").value, p_intake:$("intake").value,
       p_current_level:+$("curLevel").value, p_affected_level:+$("affLevel").value,
-      p_affected_semester:+$("sem").value, p_course_id:$("course").value,
-      p_category_id:$("cat").value, p_description:$("desc").value,
-      p_other_explanation:$("other").value||null, p_confirm_duplicate:confirmDup
+      p_affected_semester:+$("sem").value, p_items:pickedItems(),
+      p_description:$("desc").value, p_confirm_duplicate:confirmDup
     });
     if(error) throw error;
     if(data.status==="duplicate_warning"){
-      const box=$("formMsg"); say(box, data.message+" If this is a DIFFERENT problem, press the button below to submit it anyway.","warn");
+      const box=$("formMsg"); const cn=(courseRows.find(x=>x.id===data.course_id)||{}).name; say(box, data.message+(cn?" ("+cn+")":"")+" If this is a DIFFERENT problem, press the button below to submit it anyway.","warn");
       const b=document.createElement("button"); b.type="button"; b.className="sec"; b.textContent="Yes, this is a different problem. Submit anyway.";
       b.onclick=()=>send(true); box.appendChild(b); return;
     }
@@ -392,15 +413,15 @@ async function send(confirmDup){
     if(fs.length){
       let ok=0;
       for(const f of fs){
-        const path=data.case_id+"/"+crypto.randomUUID()+"."+EXT[f.type];
+        const path=data.cases[0].case_id+"/"+crypto.randomUUID()+"."+EXT[f.type];
         const up=await db.storage.from("case-documents").upload(path,f,{contentType:f.type,upsert:false});
         if(up.error) continue;
-        const r=await db.rpc("register_document",{p_case_id:data.case_id,p_path:path,p_original_name:f.name});
+        const r=await db.rpc("register_document",{p_case_id:data.cases[0].case_id,p_path:path,p_original_name:f.name});
         if(!r.error&&r.data&&r.data.status==="ok") ok++;
       }
       note = ok+" of "+fs.length+" file(s) attached.";
     }
-    $("refOut").textContent=data.reference_number; $("uploadNote").textContent=note;
+    $("refOut").replaceChildren(...data.cases.map(x=>el("div",{textContent:((courseRows.find(c=>c.id===x.course_id)||{}).name||"Course")+": "+x.reference_number}))); $("uploadNote").textContent=note;
     $("formCard").hidden=true; $("doneCard").hidden=false; window.scrollTo(0,0);
   }catch(e){ say($("formMsg"),"Something went wrong. Please try again.","bad"); }
   finally{ btn.disabled=false; btn.textContent="Submit report"; }
@@ -408,17 +429,21 @@ async function send(confirmDup){
 
 $("f").addEventListener("submit",e=>{
   e.preventDefault(); say($("formMsg"),"");
-  const req=["fullName","indexNo","year","intake","curLevel","affLevel","sem","course","cat","desc"];
+  const req=["fullName","indexNo","year","intake","curLevel","affLevel","sem","desc"];
   for(const id of req){ if(!$(id).value.trim()){ say($("formMsg"),"Please complete all required fields.","bad"); $(id).focus(); return; } }
   if($("desc").value.trim().length<10){ say($("formMsg"),"Please describe the problem in at least 10 characters.","bad"); return; }
-  const c=categories.find(x=>x.id===$("cat").value);
-  if(c&&c.requires_explanation&&!$("other").value.trim()){ say($("formMsg"),"Please explain the \"Other\" issue.","bad"); $("other").focus(); return; }
+  const it=pickedItems();
+  if(!it.length){ say($("formMsg"),"Please tick at least one course.","bad"); return; }
+  if(it.length>12){ say($("formMsg"),"Please select at most 12 courses at a time.","bad"); return; }
+  for(const x of it){ const k=categories.find(y=>y.id===x.category_id);
+    if(!k){ say($("formMsg"),"Please choose the problem for every ticked course.","bad"); return; }
+    if(k.requires_explanation&&!x.other_explanation){ say($("formMsg"),"Please explain the Other issue.","bad"); return; } }
   const fe=checkFiles(); if(fe){ say($("formMsg"),fe,"bad"); return; }
   send(false);
 });
 
-$("copyBtn").onclick=async()=>{ try{ await navigator.clipboard.writeText($("refOut").textContent); $("copyBtn").textContent="Copied"; }catch(e){} };
-$("againBtn").onclick=()=>{ ["course","cat","desc","other","files"].forEach(id=>$(id).value=""); $("otherBox").hidden=true; say($("formMsg"),""); $("doneCard").hidden=true; $("formCard").hidden=false; $("copyBtn").textContent="Copy reference"; };
+$("copyBtn").onclick=async()=>{ try{ await navigator.clipboard.writeText($("refOut").innerText); $("copyBtn").textContent="Copied"; }catch(e){} };
+$("againBtn").onclick=()=>{ ["desc","files"].forEach(id=>$(id).value=""); courseRows.forEach(c=>{c._cb.checked=false;c._cb.onchange();c._sel.value="";c._ot.value=""}); say($("formMsg"),""); $("doneCard").hidden=true; $("formCard").hidden=false; $("copyBtn").textContent="Copy reference"; };
 
 $("trackBtn").onclick=async()=>{
   const out=$("trackOut"); const ref=$("trackRef").value.trim();
@@ -472,7 +497,11 @@ function qrCard(){const c=el("div",{className:"card"},el("h3",{textContent:"QR c
  c.append(el("div",{textContent:url}),el("img",{src:q.createDataURL(8,4),alt:"QR code",style:"width:220px;height:220px;image-rendering:pixelated;background:#fff;display:block;margin:10px 0"}),
   el("a",{href:q.createDataURL(12,4),download:"examination-platform-qr.gif",textContent:"Download QR code",style:"color:var(--pri);font-weight:700"}),
   el("div",{textContent:"Print it on notice boards. Students scan it to open this page.",style:"color:var(--mute);margin-top:6px"}));return c}
-$("ctaTrack").onclick=()=>ptab(false);
+function openPortal(r){document.body.classList.add("inportal");$("home").hidden=true;$("portal").hidden=false;ptab(r);window.scrollTo(0,0)}
+function goHome(){document.body.classList.remove("inportal");$("portal").hidden=true;$("home").hidden=false;window.scrollTo(0,0)}
+$("ctaReport").onclick=e=>{e.preventDefault();openPortal(true)};
+$("ctaTrack").onclick=e=>{e.preventDefault();openPortal(false)};
+$("backHome").onclick=goHome;
 $("staffLink").onclick=async()=>{$("pub").hidden=true;$("adm").hidden=false;await boot();
  if(!$("login").hidden&&!$("lm").textContent){const r=await db.from("site_settings").select("key").eq("is_public",true).limit(1);
   note($("lm"),r.error?"Cannot reach the database ("+SUPABASE_URL.replace("https://","")+"): "+r.error.message+". Check that the Supabase project is not paused, and open "+SUPABASE_URL+"/rest/v1/ in a new tab as a test.":(DEMO?"Demo mode: type any email and any password to enter.":"Database connection OK. Enter your admin email and password."),!r.error)}};
