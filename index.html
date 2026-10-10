@@ -71,6 +71,63 @@ header>*{position:relative;z-index:1}header .ecg{position:absolute;left:0;bottom
 .ecg path{fill:none;stroke:#7ff5e0;stroke-width:3;stroke-dasharray:1600;stroke-dashoffset:1600;animation:ecg 4.5s linear infinite}
 @keyframes ecg{to{stroke-dashoffset:0}}header h1{text-shadow:0 2px 12px rgba(0,0,0,.4)}
 .arow{flex-wrap:wrap}
+
+/* ===== WHITE + GREEN + BLUE THEME WITH ANIMATIONS ===== */
+:root{--bg:#f4faf8;--card:#ffffff;--ink:#0d2b3e;--mute:#587186;--pri:#1565c0;--line:#d7e7e4;--ok:#15803d;--bad:#c62828;--warn:#9a6700;--grn:#16a34a;--blu:#1565c0;--sky:#0ea5e9}
+body{background:linear-gradient(180deg,#eef8f4 0,#ffffff 360px) fixed}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes flow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(24px) scale(1.08)}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.55)}70%{box-shadow:0 0 0 16px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+@keyframes ring{0%,100%{box-shadow:0 0 0 4px #fff,0 0 0 7px #16a34a}50%{box-shadow:0 0 0 4px #fff,0 0 0 9px #1565c0}}
+@keyframes pop{0%{opacity:0;transform:scale(.85)}60%{transform:scale(1.03)}100%{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+header{background:linear-gradient(120deg,#0b5fb3,#0e8f8a 52%,#16a34a);background-size:220% 220%;animation:flow 14s ease infinite}
+header::before,header::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.13);z-index:0;animation:float 9s ease-in-out infinite}
+header::before{width:280px;height:280px;top:-110px;right:-70px}
+header::after{width:170px;height:170px;bottom:-70px;left:6%;animation-delay:-4s}
+header .ecg path{stroke:#ffffff}header .ecg{opacity:.45}
+.eyebrow,header h1,header p,.cta{animation:rise .8s both}
+header h1{animation-delay:.12s}header p{animation-delay:.26s}.cta{animation-delay:.4s,0s}.cta.o{animation-delay:.5s,0s}
+.cta{color:#0b5fb3;transition:transform .2s;animation:rise .8s .4s both,pulse 2.8s 1.4s infinite}
+.cta:hover{transform:translateY(-3px) scale(1.04)}.cta.o{color:#fff}
+.card{animation:rise .6s both;transition:transform .25s,box-shadow .25s;border-color:#d7e7e4}
+.steps .card:nth-child(1){animation-delay:.05s}.steps .card:nth-child(2){animation-delay:.15s}.steps .card:nth-child(3){animation-delay:.25s}
+.steps .card{border-top:4px solid var(--grn)}.steps .card:nth-child(2){border-top-color:var(--blu)}
+.steps .card:hover{transform:translateY(-6px);box-shadow:0 16px 32px rgba(21,101,192,.16)}
+#teamCard h2{color:var(--blu)}
+.tm{transition:transform .25s}.tm:hover{transform:translateY(-6px)}
+.tm .av{animation:ring 4s ease-in-out infinite;transition:transform .25s}.tm:hover .av{transform:scale(1.07)}
+.tm strong{color:var(--ink)}.tm small{color:var(--grn);font-weight:600}
+.tabs button{transition:all .2s}.tabs button:hover{transform:translateY(-2px);border-color:var(--grn)}
+.tabs button.on{background:linear-gradient(120deg,var(--blu),var(--grn));border-color:transparent}
+fieldset{border-color:#cfe6df;transition:border-color .25s}fieldset:focus-within{border-color:var(--grn)}
+legend{color:var(--blu)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--grn);box-shadow:0 0 0 3px rgba(22,163,74,.2)}
+.go{background:linear-gradient(120deg,var(--blu),var(--grn));background-size:200% 100%;transition:background-position .4s,transform .2s,box-shadow .2s}
+.go:hover:not(:disabled){background-position:100% 0;transform:translateY(-2px);box-shadow:0 10px 22px rgba(22,163,74,.3)}
+.go:disabled::after{content:"";display:inline-block;width:14px;height:14px;margin-left:10px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px}
+.sec{border-color:var(--blu);color:var(--blu);transition:all .2s}.sec:hover{background:var(--blu);color:#fff}
+.clist .ci{transition:all .2s}.clist .ci:hover{border-color:var(--grn);background:#f3fbf6}
+.clist .ci:has(input:checked){background:#ecfdf5;border-color:var(--grn);box-shadow:0 4px 14px rgba(22,163,74,.15)}
+.ci .more{animation:rise .35s both}
+#doneCard{animation:pop .6s both;border-top:4px solid var(--grn)}
+.ref{color:var(--blu)}
+#home,#portal{animation:rise .5s both}
+.dot{background:var(--grn);opacity:.35}
+/* admin look */
+nav{background:linear-gradient(90deg,#0b5fb3,#16a34a)}
+nav button{transition:all .2s}nav button:hover{background:rgba(255,255,255,.3);transform:translateY(-1px)}
+nav button.on{background:#fff;color:#0b5fb3}
+button.b{background:linear-gradient(120deg,var(--blu),var(--grn));transition:transform .2s,box-shadow .2s}
+button.b:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(21,101,192,.25)}
+button.b.g{background:transparent;color:var(--blu);border:1px solid var(--blu)}
+button.b.g:hover{background:rgba(21,101,192,.08);box-shadow:none}
+.stat b{color:var(--blu)}.stat:nth-child(even) b{color:var(--grn)}
+tr.gh td{color:var(--blu);background:#eef8f4}
+.batch h3{color:var(--blu);border-left:5px solid var(--grn);padding-left:10px}
+tr.r{transition:background .15s}tr.r:hover{background:#ecfdf5}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style></head><body>
 <div id="pub">
 <header id="hero"><svg class="ecg" viewBox="0 0 800 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70H120l15-40 20 80 20-70 12 30H330l15-40 20 80 20-70 12 30H540l15-40 20 80 20-70 12 30H800"/></svg><div class="eyebrow">&#129658; Department of Nursing and Midwifery</div>
@@ -80,7 +137,7 @@ header>*{position:relative;z-index:1}header .ecg{position:absolute;left:0;bottom
 <main>
 <div id="home">
 <div class="grid steps">
-<div class="card"><b>1. Report</b><br><small>Fill in your details, the course, the level and semester, and describe the problem.</small></div>
+<div class="card"><b>1. Report</b><br><small>Choose your year, intake and level, tick your courses, and describe the problem.</small></div>
 <div class="card"><b>2. Keep your reference</b><br><small>You receive a private reference number as soon as you submit.</small></div>
 <div class="card"><b>3. Track</b><br><small>Use the reference number any time to see where your case has reached.</small></div></div>
 <section class="card" id="teamCard"><h2 style="margin-top:0">Meet Our Department Leadership</h2><div class="grid" id="teamGrid"></div></section>
