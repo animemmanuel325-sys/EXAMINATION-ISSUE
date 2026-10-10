@@ -70,6 +70,7 @@ header{position:relative;overflow:hidden;background:radial-gradient(circle at 85
 header>*{position:relative;z-index:1}header .ecg{position:absolute;left:0;bottom:6px;width:100%;height:90px;opacity:.4;z-index:0}
 .ecg path{fill:none;stroke:#7ff5e0;stroke-width:3;stroke-dasharray:1600;stroke-dashoffset:1600;animation:ecg 4.5s linear infinite}
 @keyframes ecg{to{stroke-dashoffset:0}}header h1{text-shadow:0 2px 12px rgba(0,0,0,.4)}
+.arow{flex-wrap:wrap}
 </style></head><body>
 <div id="pub">
 <header id="hero"><svg class="ecg" viewBox="0 0 800 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70H120l15-40 20 80 20-70 12 30H330l15-40 20 80 20-70 12 30H540l15-40 20 80 20-70 12 30H800"/></svg><div class="eyebrow">&#129658; Department of Nursing and Midwifery</div>
@@ -97,33 +98,26 @@ header>*{position:relative;z-index:1}header .ecg{position:absolute;left:0;bottom
 
     <div class="card" id="formCard">
       <form id="f" autocomplete="off" novalidate>
-        <fieldset><legend>1. About you</legend>
+        <fieldset><legend>1. Your admission group</legend>
+          <label for="year">Which year were you admitted?</label>
+          <select id="year" required></select>
+          <label for="intake">Which intake were you admitted under?</label>
+          <select id="intake" required disabled><option value="">Select</option><option value="January">January Intake</option><option value="September">September Intake</option></select>
+          <label for="affLevel">Which academic level are you experiencing the examination results issue in?</label>
+          <select id="affLevel" required disabled><option value="">Select</option><option value="100">Level 100</option><option value="200">Level 200</option><option value="300">Level 300</option><option value="400">Level 400</option></select>
+          <small>Choose the level where the problem happened, not necessarily your current level.</small>
+        </fieldset>
+
+        <fieldset><legend>2. Your courses</legend>
+          <div id="courseMsg" class="msg warn">Select your year, intake and level to see your courses.</div>
+          <div id="courseList" class="clist"></div>
+        </fieldset>
+
+        <fieldset><legend>3. Your details and the problem</legend>
           <label for="fullName">Full name</label>
           <input id="fullName" maxlength="150" required>
           <label for="indexNo">Student index number</label>
           <input id="indexNo" maxlength="30" required autocapitalize="characters">
-          <div class="row">
-            <div><label for="year">Admission year</label><select id="year" required></select></div>
-            <div><label for="intake">Intake</label>
-              <select id="intake" required><option value="">Select</option><option>January</option><option>September</option></select></div>
-          </div>
-          <label for="curLevel">Your current level</label>
-          <select id="curLevel" required><option value="">Select</option><option>100</option><option>200</option><option>300</option><option>400</option></select>
-        </fieldset>
-
-        <fieldset><legend>2. When did the problem happen?</legend>
-          <small>Choose the level and semester of the examination itself, not your current level.</small>
-          <div class="row">
-            <div><label for="affLevel">Level affected</label>
-              <select id="affLevel" required><option value="">Select</option><option>100</option><option>200</option><option>300</option><option>400</option></select></div>
-            <div><label for="sem">Semester</label>
-              <select id="sem" required><option value="">Select</option><option value="1">First Semester</option><option value="2">Second Semester</option></select></div>
-          </div>
-        </fieldset>
-
-        <fieldset><legend>3. The problem</legend>
-          <label>Courses with a problem <small>(tick EVERY course you have a challenge with in this semester, then choose the problem for each)</small></label>
-          <div id="courseList" class="clist"></div>
           <label for="desc">Describe the problem <small>(this is saved for every ticked course)</small></label>
           <textarea id="desc" maxlength="2000" required></textarea>
           <label for="files">Supporting document or screenshot <small>(optional)</small></label>
@@ -165,7 +159,7 @@ header>*{position:relative;z-index:1}header .ecg{position:absolute;left:0;bottom
 <button class="b" id="go" style="width:100%">Sign in</button><div id="lm"></div></div>
 
 <div id="app" hidden>
-<nav><b id="who"></b><button data-t="overview">Overview</button><button data-t="cases">Cases</button><button data-t="courses">Courses</button><button data-t="cats">Issue types</button><button data-t="site">Website &amp; team</button><button id="back">Public site</button><button id="out">Sign out</button></nav>
+<nav><b id="who"></b><button data-t="overview">Overview</button><button data-t="cases">Cases</button><button data-t="courses">Courses by batch</button><button data-t="cats">Issue types</button><button data-t="site">Website &amp; team</button><button id="back">Public site</button><button id="out">Sign out</button></nav>
 <main>
 <section id="v-overview"></section>
 <section id="v-cases" hidden>
@@ -214,6 +208,8 @@ function demoClient(){
   case_notes:[],case_status_history:[],case_documents:[],
   site_settings:[{key:"welcome_title",value:"Welcome to the Nursing and Midwifery Department Examination Results Resolution Platform",is_public:true},{key:"max_upload_mb",value:5,is_public:true},{key:"allowed_mime_types",value:["image/jpeg","image/png","application/pdf"],is_public:true},{key:"max_files_per_case",value:3,is_public:true},{key:"tracking_enabled",value:true,is_public:true}],
   team_members:[["Head of Department (HOD)","Dr. Sample Name","Your success is our priority."],["Administrator","Sample Administrator",""],["Nursing Coordinator","Sample Coordinator",""],["Clinical Coordinator","Sample Clinical Coordinator",""]].map((a,i)=>({id:"t"+i,role_title:a[0],full_name:a[1],message:a[2],photo:null,sort_order:i*10,is_active:true}))};
+ const A=(code,name,sem,y,i,l)=>({id:id(),course_id:"c"+CO.indexOf(name),code,name,semester:sem,is_active:true,year:y,intake:i,level:l});
+ T.course_assignments=[A("ANA101","Anatomy",1,2024,"January",100),A("PHY101","Physiology",1,2024,"January",100),A("NUR101","Basic Nursing",2,2024,"January",100),A("FAD101","First Aid",1,2024,"September",100)];
  const NM=["Ama Mensah","Kofi Boateng","Esi Quaye","Yaw Owusu","Abena Asare","Kwame Darko","Efua Addo","Nana Appiah"];
  T.v_cases_full=T.cases=NM.map((n,i)=>{const yr=2022+i%3,it=i%2?"September":"January",L=[100,200,300,400][i%4];return{id:"x"+i,reference_number:"EX-DEMO"+(1000+i),full_name:n,index_number:"NMS/"+yr+"/"+(100+i),admission_year:yr,intake:it,batch_label:yr+" - "+it+" Intake",course_id:"c"+i%6,course_name:CO[i%6],category_id:"k"+i%3,category_name:KA[i%3],other_explanation:null,status_id:ST[i%3][0],status_name:ST[i%3][1],current_level:400,affected_level:L,affected_semester:1+i%2,description:"Sample description of an examination problem for demonstration.",document_count:0,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}});
  const from=t=>{const q={f:[],op:"select",pl:null,one:false,lim:1e9,ord:null},b={};
@@ -232,6 +228,11 @@ function demoClient(){
  const rpc=async(n,a)=>{const c=T.v_cases_full;
   if(n==="dashboard_stats")return{data:{total_cases:c.length,unique_students:new Set(c.map(r=>r.index_number)).size,active_courses:T.courses.filter(x=>x.is_active).length,batches_represented:new Set(c.map(r=>r.batch_label)).size,by_level:cnt(r=>r.affected_level),by_semester:cnt(r=>r.affected_semester),by_status:cnt(r=>r.status_name),top_courses:Object.entries(cnt(r=>r.course_name)).map(([course,cases])=>({course,cases}))},error:null};
   if(n==="admin_delete_case"){const i=c.findIndex(x=>x.id===a.p_case_id);if(i>-1)c.splice(i,1);return{data:{status:"ok"},error:null}}
+  if(n==="get_courses")return{data:T.course_assignments.filter(r=>r.is_active&&r.year===a.p_year&&r.intake===a.p_intake&&r.level===a.p_level).map(r=>({assignment_id:r.id,course_id:r.course_id,code:r.code,name:r.name,semester:r.semester})),error:null};
+  if(n==="admin_list_assignments")return{data:T.course_assignments.filter(r=>r.year===a.p_year&&r.intake===a.p_intake&&r.level===a.p_level).map(r=>({...r,course_active:true})),error:null};
+  if(n==="admin_assign_course"){if(T.course_assignments.some(r=>r.name.toLowerCase()===a.p_name.trim().toLowerCase()&&r.year===a.p_year&&r.intake===a.p_intake&&r.level===a.p_level))return{data:{status:"error",message:"That course is already assigned to this group."},error:null};
+   T.course_assignments.push({id:id(),course_id:id(),code:(a.p_code||"").toUpperCase(),name:a.p_name.trim(),semester:a.p_semester,is_active:a.p_active,year:a.p_year,intake:a.p_intake,level:a.p_level});return{data:{status:"ok"},error:null}}
+  if(n==="submit_complaint")return{data:{status:"ok",cases:a.p_items.map(x=>({reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id(),assignment_id:x.assignment_id}))},error:null};
   if(n==="submit_cases")return{data:{status:"ok",cases:a.p_items.map(x=>({status:"ok",reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id(),course_id:x.course_id}))},error:null};
   if(n==="submit_case")return{data:{status:"ok",reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id()},error:null};
   if(n==="track_case")return{data:{status:"ok",case_status:"Under Review",course:"Anatomy",level:200,semester:1,submitted:new Date().toISOString(),last_updated:new Date().toISOString()},error:null};
@@ -261,11 +262,11 @@ async function lookups(){
  lk={courses:c.data||[],cats:k.data||[],sts:s.data||[]};
  const opt=(sel,all,rs)=>{sel.replaceChildren(new Option(all,""));rs.forEach(r=>sel.appendChild(new Option(r.name+(r.is_active===false?" (inactive)":""),r.id)))};
  opt($("fc"),"All courses",lk.courses);opt($("fk"),"All issue types",lk.cats);opt($("ft"),"All statuses",lk.sts);
- $("fy").replaceChildren(new Option("All years",""));for(let y=2020;y<=2030;y++)$("fy").appendChild(new Option(y,y))}
+ $("fy").replaceChildren(new Option("All years",""));for(let y=2020;y<=2040;y++)$("fy").appendChild(new Option(y,y))}
 document.querySelectorAll("nav [data-t]").forEach(b=>b.onclick=()=>tab(b.dataset.t));
 function tab(t){["overview","cases","courses","cats","site"].forEach(x=>$("v-"+x).hidden=x!==t);
  document.querySelectorAll("nav [data-t]").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
- if(t==="overview")overview();if(t==="cases")loadCases();if(t==="courses")manage("courses","v-courses","Courses");if(t==="cats")manage("issue_categories","v-cats","Issue types");if(t==="site")website()}
+ if(t==="overview")overview();if(t==="cases")loadCases();if(t==="courses")courseBatches();if(t==="cats")manage("issue_categories","v-cats","Issue types");if(t==="site")website()}
 
 async function overview(){const v=$("v-overview");const {data,error}=await db.rpc("dashboard_stats");
  if(error)return v.replaceChildren(el("div",{className:"amsg",textContent:"Could not load statistics."}));
@@ -384,7 +385,19 @@ function buildCourses(rows){const L=$("courseList");L.replaceChildren();
   cb.onchange=()=>{more.hidden=!cb.checked};
   L.append(el("div",{className:"ci"},el("label",{},cb,c.name),more));
   c._cb=cb;c._sel=sel;c._ot=ot})}
-function pickedItems(){return courseRows.filter(c=>c._cb&&c._cb.checked).map(c=>({course_id:c.id,category_id:c._sel.value,other_explanation:c._ot.value.trim()}))}
+const sel3=()=>({y:$("year").value,i:$("intake").value,l:$("affLevel").value});
+async function loadGroup(){const {y,i,l}=sel3();courseRows=[];$("courseList").replaceChildren();const m=$("courseMsg");m.hidden=false;m.className="msg warn";
+ if(!y||!i||!l){m.textContent="Select your year, intake and level to see your courses.";return}
+ m.textContent="Loading your courses...";
+ const {data,error}=await db.rpc("get_courses",{p_year:+y,p_intake:i,p_level:+l});
+ const n=sel3();if(n.y!==y||n.i!==i||n.l!==l)return;
+ if(error){m.className="msg bad";m.textContent="Could not load courses. Please refresh and try again.";return}
+ if(!data||!data.length){m.textContent="Courses for the "+y+" "+i+" Intake, Level "+l+" are not yet available. Please check again later or contact your department.";return}
+ m.hidden=true;courseRows=data.map(r=>({id:r.assignment_id,name:(r.code?r.code+" - ":"")+r.name+(r.semester?" (Semester "+r.semester+")":"")}));buildCourses(courseRows)}
+$("year").onchange=()=>{$("intake").disabled=!$("year").value;$("affLevel").disabled=!($("year").value&&$("intake").value);loadGroup()};
+$("intake").onchange=()=>{$("affLevel").disabled=!$("intake").value;loadGroup()};
+$("affLevel").onchange=loadGroup;
+function pickedItems(){return courseRows.filter(c=>c._cb&&c._cb.checked).map(c=>({assignment_id:c.id,category_id:c._sel.value,other_explanation:c._ot.value.trim()}))}
 const EXT = {"image/jpeg":"jpg","image/png":"png","application/pdf":"pdf"};
 
 function say(el, text, kind){ el.replaceChildren(); if(!text) return; const d=document.createElement("div"); d.className="msg "+kind; d.textContent=text; el.appendChild(d); }
@@ -392,16 +405,15 @@ function fill(sel, rows, label){ sel.replaceChildren(new Option(label,"")); rows
 
 async function init(){
   const y=$("year"); y.appendChild(new Option("Select",""));
-  for(let i=2020;i<=2030;i++) y.appendChild(new Option(i,i));
+  for(let i=2023;i<=2040;i++) y.appendChild(new Option(i,i));
   if(SUPABASE_URL.startsWith("PASTE")){ say($("loadErr"),"Set SUPABASE_URL and SUPABASE_ANON_KEY at the top of the script first.","bad"); $("loadErr").hidden=false; return; }
   try{
-    const [c, k, s] = await Promise.all([
-      db.from("courses").select("id,name").eq("is_active",true).order("name"),
+    const [k, s] = await Promise.all([
       db.from("issue_categories").select("id,name,requires_explanation,sort_order").eq("is_active",true).order("sort_order"),
       db.from("site_settings").select("key,value").eq("is_public",true)
     ]);
-    if(c.error||k.error||s.error) throw (c.error||k.error||s.error);
-    categories = k.data; courseRows = c.data; buildCourses(courseRows);
+    if(k.error||s.error) throw (k.error||s.error);
+    categories = k.data;
     s.data.forEach(r=>{ cfg[r.key]=r.value; });
     if(cfg.site_title) document.title=cfg.site_title;
     if(typeof cfg.hero_image==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(cfg.hero_image)) $("hero").style.background="linear-gradient(rgba(4,36,42,.72),rgba(4,36,42,.72)),url("+cfg.hero_image+") center/cover";
@@ -429,16 +441,15 @@ function checkFiles(){
 async function send(confirmDup){
   const btn=$("submitBtn"); btn.disabled=true; btn.textContent="Submitting...";
   try{
-    const {data,error}=await db.rpc("submit_cases",{
+    const {data,error}=await db.rpc("submit_complaint",{
       p_full_name:$("fullName").value, p_index_number:$("indexNo").value,
       p_admission_year:+$("year").value, p_intake:$("intake").value,
-      p_current_level:+$("curLevel").value, p_affected_level:+$("affLevel").value,
-      p_affected_semester:+$("sem").value, p_items:pickedItems(),
+      p_level:+$("affLevel").value, p_items:pickedItems(),
       p_description:$("desc").value, p_confirm_duplicate:confirmDup
     });
     if(error) throw error;
     if(data.status==="duplicate_warning"){
-      const box=$("formMsg"); const cn=(courseRows.find(x=>x.id===data.course_id)||{}).name; say(box, data.message+(cn?" ("+cn+")":"")+" If this is a DIFFERENT problem, press the button below to submit it anyway.","warn");
+      const box=$("formMsg"); const cn=(courseRows.find(x=>x.id===data.assignment_id)||{}).name; say(box, data.message+(cn?" ("+cn+")":"")+" If this is a DIFFERENT problem, press the button below to submit it anyway.","warn");
       const b=document.createElement("button"); b.type="button"; b.className="sec"; b.textContent="Yes, this is a different problem. Submit anyway.";
       b.onclick=()=>send(true); box.appendChild(b); return;
     }
@@ -456,7 +467,7 @@ async function send(confirmDup){
       }
       note = ok+" of "+fs.length+" file(s) attached.";
     }
-    $("refOut").replaceChildren(...data.cases.map(x=>el("div",{textContent:((courseRows.find(c=>c.id===x.course_id)||{}).name||"Course")+": "+x.reference_number}))); $("uploadNote").textContent=note;
+    $("refOut").replaceChildren(...data.cases.map(x=>el("div",{textContent:((courseRows.find(c=>c.id===x.assignment_id)||{}).name||"Course")+": "+x.reference_number}))); $("uploadNote").textContent=note;
     $("formCard").hidden=true; $("doneCard").hidden=false; window.scrollTo(0,0);
   }catch(e){ say($("formMsg"),"Something went wrong. Please try again.","bad"); }
   finally{ btn.disabled=false; btn.textContent="Submit report"; }
@@ -464,7 +475,7 @@ async function send(confirmDup){
 
 $("f").addEventListener("submit",e=>{
   e.preventDefault(); say($("formMsg"),"");
-  const req=["fullName","indexNo","year","intake","curLevel","affLevel","sem","desc"];
+  const req=["year","intake","affLevel","fullName","indexNo","desc"];
   for(const id of req){ if(!$(id).value.trim()){ say($("formMsg"),"Please complete all required fields.","bad"); $(id).focus(); return; } }
   if($("desc").value.trim().length<10){ say($("formMsg"),"Please describe the problem in at least 10 characters.","bad"); return; }
   const it=pickedItems();
@@ -526,6 +537,44 @@ async function teamEditor(box){const {data}=await db.from("team_members").select
   const dl=el("button",{className:"b g",textContent:"Delete member"});
   dl.onclick=async()=>{if(!confirm("Delete this team member?"))return;const {error}=await db.from("team_members").delete().eq("id",x.id);if(error)return note(m,"Only the super administrator can delete.");website()};
   return el("div",{className:"card"},el("div",{className:"arow"},img,el("div",{style:"flex:1"},ti,na)),el("div",{className:"arow"},ms),el("div",{className:"arow"},fi,rp,el("label",{},ac," Show on site")," Order ",or),el("div",{className:"arow"},sv,dl))}))}
+async function courseBatches(){const v=$("v-courses");
+ const sy=el("select"),si=el("select"),sl=el("select"),m=el("div"),body=el("div"),q=el("input",{type:"text",placeholder:"Search courses in this group",style:"width:100%;margin-top:8px"});
+ for(let y=2023;y<=2040;y++)sy.append(new Option(y+" Year Batch",y));
+ si.append(new Option("January Intake","January"),new Option("September Intake","September"));
+ [100,200,300,400].forEach(l=>sl.append(new Option("Level "+l,l)));
+ const yy=new Date().getFullYear();if(yy>=2023&&yy<=2040)sy.value=String(yy);
+ let list=[];
+ const draw=()=>{body.replaceChildren();
+  const code=el("input",{type:"text",placeholder:"Course code e.g. ANA101",maxLength:20}),nm_=el("input",{type:"text",placeholder:"Course name",maxLength:150});
+  const sem=el("select");sem.append(new Option("Semester: not specified",""),new Option("First Semester","1"),new Option("Second Semester","2"));
+  const act=el("select");act.append(new Option("Active","1"),new Option("Inactive","0"));
+  const add=el("button",{className:"b",textContent:"Add course to this group"});
+  add.onclick=async()=>{const {data,error}=await db.rpc("admin_assign_course",{p_code:code.value,p_name:nm_.value,p_year:+sy.value,p_intake:si.value,p_level:+sl.value,p_semester:sem.value?+sem.value:null,p_active:act.value==="1"});
+   if(error)return note(m,"Could not add (check your role).");if(data.status!=="ok")return note(m,data.message);note(m,"Course added.",true);await lookups();load()};
+  body.append(el("div",{className:"card"},el("h3",{textContent:"Add a course to "+sy.value+" "+si.value+" Intake, Level "+sl.value}),el("div",{className:"f"},code,nm_,sem,act),add));
+  const t=q.value.toLowerCase(),rs=list.filter(x=>((x.code||"")+" "+x.name).toLowerCase().includes(t));
+  const box=el("div",{className:"card"},el("h3",{textContent:rs.length+" course(s) in this group"}));
+  if(!rs.length)box.append(el("div",{textContent:"No courses yet. Students will see that courses are not available for this group.",style:"color:var(--mute)"}));
+  rs.forEach(x=>{const ci=el("input",{type:"text",value:x.code||"",maxLength:20,style:"max-width:120px"}),ni=el("input",{type:"text",value:x.name,maxLength:150});
+   const ss=el("select");ss.append(new Option("No semester",""),new Option("Semester 1","1"),new Option("Semester 2","2"));ss.value=x.semester?String(x.semester):"";
+   const sv=el("button",{className:"b g",textContent:"Save"});
+   sv.onclick=async()=>{const ch=ci.value.trim().toUpperCase()!==(x.code||"")||ni.value.trim()!==x.name;
+    if(ch&&!confirm("Changing the code or name changes this course in EVERY batch that uses it. Continue?"))return;
+    let e1=null;if(ch)e1=(await db.from("courses").update({code:ci.value.trim().toUpperCase()||null,name:ni.value.trim()}).eq("id",x.course_id)).error;
+    const e2=(await db.from("course_assignments").update({semester:ss.value?+ss.value:null}).eq("id",x.id)).error;
+    note(m,(e1||e2)?"Could not save (duplicate name or code, or permission).":"Saved.",!(e1||e2));if(!(e1||e2))load()};
+   const tg=el("button",{className:"b g",textContent:x.is_active?"Deactivate":"Activate"});
+   tg.onclick=async()=>{if(!confirm((x.is_active?"Deactivate ":"Activate ")+x.name+" for this group? Old complaints are kept."))return;
+    const {error}=await db.from("course_assignments").update({is_active:!x.is_active}).eq("id",x.id);note(m,error?"Permission denied.":"Saved.",!error);if(!error)load()};
+   const rm=el("button",{className:"b g",textContent:"Remove",style:"color:var(--bad);border-color:var(--bad)"});
+   rm.onclick=async()=>{if(!confirm("Remove "+x.name+" from this group? Old complaints are kept and the course record is not deleted."))return;
+    const {error}=await db.from("course_assignments").delete().eq("id",x.id);note(m,error?"Permission denied.":"Removed from this group.",!error);if(!error)load()};
+   box.append(el("div",{className:"arow"+(x.is_active?"":" off")},ci,ni,ss,sv,tg,rm))});
+  body.append(box)};
+ const load=async()=>{const {data,error}=await db.rpc("admin_list_assignments",{p_year:+sy.value,p_intake:si.value,p_level:+sl.value});
+  if(error){note(m,"Could not load courses.");return}list=data||[];draw()};
+ [sy,si,sl].forEach(x=>x.onchange=load);q.oninput=draw;
+ v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Courses by year batch, intake and level"}),el("div",{className:"f"},sy,si,sl),q,m),body);load()}
 function heroCard(){const msg=el("div"),fi=el("input",{type:"file",accept:"image/jpeg,image/png,image/webp"});
  const save=async v=>{const {error}=await db.from("site_settings").upsert([{key:"hero_image",value:v,is_public:true,updated_by:me.id}]);note(msg,error?"Only the super administrator can change this.":(v?"Banner picture saved. Refresh the public page to see it.":"Banner picture removed."),!error)};
  fi.onchange=()=>{const f=fi.files[0];if(!f)return;if(!["image/jpeg","image/png","image/webp"].includes(f.type)||f.size>204800){fi.value="";return note(msg,"Picture must be JPG, PNG or WebP and at most 200 KB.")}const r=new FileReader();r.onload=()=>save(r.result);r.readAsDataURL(f)};
