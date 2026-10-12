@@ -323,7 +323,7 @@ function demoClient(){
   if(n==="submit_case")return{data:{status:"ok",reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id()},error:null};
   if(n==="track_case")return{data:{status:"ok",case_status:"Under Review",course:"Anatomy",level:200,semester:1,submitted:new Date().toISOString(),last_updated:new Date().toISOString()},error:null};
   return{data:{status:"ok"},error:null}};
- return{from,rpc,auth:{mfa:{getAuthenticatorAssuranceLevel:async()=>({data:{currentLevel:"aal1",nextLevel:"aal1"}}),listFactors:async()=>({data:{totp:[]}}),enroll:async()=>({data:{id:"f1",totp:{qr_code:"data:image/svg+xml;utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'/>",secret:"DEMOKEY"}},error:null}),challenge:async()=>({data:{id:"c1"}}),verify:async()=>({error:null})},signInWithPassword:async()=>{inn=true;return{data:{},error:null}},getSession:async()=>({data:{session:inn?{user:{id:"demo"}}:null}}),signOut:async()=>{inn=false;return{}}},
+ return{from,rpc,auth:{mfa:{getAuthenticatorAssuranceLevel:async()=>({data:{currentLevel:"aal2",nextLevel:"aal2"}}),listFactors:async()=>({data:{totp:[]}}),enroll:async()=>({data:{id:"f1",totp:{qr_code:"data:image/svg+xml;utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'/>",secret:"DEMOKEY"}},error:null}),challenge:async()=>({data:{id:"c1"}}),verify:async()=>({error:null})},signInWithPassword:async()=>{inn=true;return{data:{},error:null}},getSession:async()=>({data:{session:inn?{user:{id:"demo"}}:null}}),signOut:async()=>{inn=false;return{}}},
   storage:{from:()=>({remove:async()=>({error:null}),upload:async()=>({error:null}),createSignedUrl:async()=>({data:null})})}}}
 
 let me=null,lk={courses:[],cats:[],sts:[]},rows=[];
@@ -608,32 +608,27 @@ const COURSES_2024MJ=[[100, "MWF101", "Basic Nursing I"], [100, "MWF103", "Commu
 const PRESETS=[{label:"2024 Nursing January (Levels 100 to 300)",year:2024,programme:"Nursing",intake:"January",rows:COURSES_2024J},{label:"2025 Nursing January (Levels 100 and 200)",year:2025,programme:"Nursing",intake:"January",rows:COURSES_2025NJ},{label:"2024 Nursing September (Levels 100 and 200)",year:2024,programme:"Nursing",intake:"September",rows:COURSES_2024NS},{label:"2024 Midwifery January (Levels 100 to 300)",year:2024,programme:"Midwifery",intake:"January",rows:COURSES_2024MJ}];
 async function mfaGate(){
  const {data:aal}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
- if(aal&&aal.nextLevel==="aal2"&&aal.currentLevel!=="aal2"){mfaPrompt();return true}
- const {data:rq}=await db.from("site_settings").select("value").eq("key","require_mfa").maybeSingle();
- if(rq&&rq.value===true&&!(aal&&aal.currentLevel==="aal2")){mfaEnrollScreen();return true}
- return false}
+ if(aal&&aal.currentLevel==="aal2")return false;
+ if(aal&&aal.nextLevel==="aal2"){mfaPrompt();return true}
+ mfaEnrollScreen();return true}
 async function mfaPrompt(){const {data:f}=await db.auth.mfa.listFactors();const fac=((f&&f.totp)||[]).find(x=>x.status==="verified");
  if(!fac)return note($("lm"),"No authenticator is set up for this account.");
  const inp=el("input",{type:"text",inputMode:"numeric",maxLength:6,placeholder:"6-digit code",autocomplete:"one-time-code",style:"width:100%;margin:6px 0"});
  const btn=el("button",{className:"b",textContent:"Verify",style:"width:100%"}),m=el("div");
- const go=async()=>{const c=await db.auth.mfa.challenge({factorId:fac.id});if(c.error)return note(m,"Could not start verification.");
-  const v=await db.auth.mfa.verify({factorId:fac.id,challengeId:c.data.id,code:inp.value.trim()});if(v.error)return note(m,"Wrong code. Try again.");boot()};
+ let wrong=0;const go=async()=>{const c=await db.auth.mfa.challenge({factorId:fac.id});if(c.error)return note(m,"Could not start verification.");
+  const v=await db.auth.mfa.verify({factorId:fac.id,challengeId:c.data.id,code:inp.value.trim()});if(v.error){if(++wrong>=5){await db.auth.signOut();location.reload();return}return note(m,"Wrong code. Try again.")}boot()};
  btn.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()};
- $("login").replaceChildren(el("h2",{textContent:"Two-step sign-in"}),el("div",{textContent:"Enter the 6-digit code from your authenticator app.",style:"color:var(--mute)"}),inp,btn,m);$("login").hidden=false;inp.focus()}
-async function mfaEnroll(box,after){const m=el("div");const {data,error}=await db.auth.mfa.enroll({factorType:"totp",friendlyName:"Admin "+Date.now()});
+ $("login").replaceChildren(el("h2",{textContent:"Two-step sign-in"}),el("div",{textContent:"Enter the 6-digit code from Google Authenticator (or your authenticator app).",style:"color:var(--mute)"}),inp,btn,m);$("login").hidden=false;inp.focus()}
+async function mfaEnroll(box,after){const m=el("div");{const {data:f0}=await db.auth.mfa.listFactors();for(const x of ((f0&&f0.all)||[]).filter(x=>x.status==="unverified"))await db.auth.mfa.unenroll({factorId:x.id})}const {data,error}=await db.auth.mfa.enroll({factorType:"totp",friendlyName:"Admin "+Date.now()});
  if(error)return box.replaceChildren(el("div",{className:"amsg",textContent:"Could not start setup: "+error.message}));
  const inp=el("input",{type:"text",inputMode:"numeric",maxLength:6,placeholder:"6-digit code",style:"width:100%;margin:6px 0"}),btn=el("button",{className:"b",textContent:"Confirm and turn on"});
  btn.onclick=async()=>{const c=await db.auth.mfa.challenge({factorId:data.id});if(c.error)return note(m,"Could not verify.");
   const v=await db.auth.mfa.verify({factorId:data.id,challengeId:c.data.id,code:inp.value.trim()});if(v.error)return note(m,"Wrong code.");note(m,"Two-step sign-in is now ON for your account.",true);if(after)after()};
  box.replaceChildren(el("div",{textContent:"1. Scan this QR code with Google Authenticator, Microsoft Authenticator or Authy. 2. Type the 6-digit code it shows."}),el("img",{src:data.totp.qr_code,alt:"QR code",style:"width:200px;height:200px;background:#fff;display:block;margin:8px 0"}),el("div",{textContent:"Or type this key: "+data.totp.secret,style:"font-family:monospace;word-break:break-all"}),inp,btn,m)}
-function mfaEnrollScreen(){const box=el("div");$("login").replaceChildren(el("h2",{textContent:"Set up two-step sign-in"}),box);$("login").hidden=false;mfaEnroll(box,()=>boot())}
-function mfaCard(){const box=el("div"),msg=el("div");
- const en=el("button",{className:"b g",textContent:"Set up two-step sign-in (MFA) for my account"});en.onclick=()=>mfaEnroll(box);
- const req=el("button",{className:"b g",textContent:"Require MFA for ALL admins"}),off=el("button",{className:"b g",textContent:"Stop requiring MFA"});
- const setReq=async v=>{if(v&&!confirm("Every admin must already have two-step sign-in set up, or they will be locked out. Continue?"))return;
-  const {error}=await db.from("site_settings").upsert([{key:"require_mfa",value:v,is_public:true,updated_by:me.id}]);note(msg,error?"Only the super administrator can change this.":(v?"MFA is now REQUIRED for all admins.":"MFA is no longer required."),!error)};
- req.onclick=()=>setReq(true);off.onclick=()=>setReq(false);
- return el("div",{className:"card"},el("h3",{textContent:"Security: two-step sign-in"}),el("div",{textContent:"Strongly recommended. When required, the database itself refuses admin access until the authenticator code is entered.",style:"color:var(--mute);margin-bottom:8px"}),en,box,el("div",{className:"arow"},req,off),msg)}
+function mfaEnrollScreen(){const box=el("div");$("login").replaceChildren(el("h2",{textContent:"Set up two-step sign-in (required)"}),el("div",{textContent:"Every administrator must use a 6-digit code from Google Authenticator after entering their password. Set it up once now.",style:"color:var(--mute);margin-bottom:8px"}),box);$("login").hidden=false;mfaEnroll(box,()=>boot())}
+function mfaCard(){const box=el("div");
+ const en=el("button",{className:"b g",textContent:"Add another phone / authenticator (backup)"});en.onclick=()=>mfaEnroll(box);
+ return el("div",{className:"card"},el("h3",{textContent:"Security: two-step sign-in is ON for every admin"}),el("div",{textContent:"After the password, a 6-digit code from Google Authenticator is always asked. Add a second phone as a backup in case one is lost.",style:"color:var(--mute);margin-bottom:8px"}),en,box)}
 async function deletedCard(){const {data,error}=await db.from("deleted_cases").select("id,deleted_at,snapshot").order("deleted_at",{ascending:false}).limit(100);
  const box=el("div",{className:"card"},el("h3",{textContent:"Deleted reports (can be restored)"})),m=el("div");
  if(error||!data||!data.length){box.append(el("div",{textContent:error?"Not available yet (run SECURITY_UPGRADE.sql).":"No deleted reports.",style:"color:var(--mute)"}));return box}
