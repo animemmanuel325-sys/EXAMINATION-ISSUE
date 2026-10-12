@@ -2,7 +2,7 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nursing and Midwifery Examination Results Resolution Platform</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src https://vmoxzwipxmqkeukahnms.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; media-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src https://vmoxzwipxmqkeukahnms.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; media-src 'none'; upgrade-insecure-requests">
 <meta name="referrer" content="no-referrer">
 <style>
 :root{--bg:#f3f6f5;--card:#fff;--ink:#17262b;--mute:#5d7077;--pri:#0f766e;--line:#d5dfdd;--ok:#127a3e;--bad:#b3261e;--warn:#8a5a00}
@@ -300,7 +300,7 @@ function demoClient(){
  T.v_cases_full=T.cases=NM.map((n,i)=>{const yr=2022+i%3,it=i%2?"September":"January",L=[100,200,300,400][i%4];return{id:"x"+i,reference_number:"EX-DEMO"+(1000+i),full_name:n,index_number:"NMS/"+yr+"/"+(100+i),admission_year:yr,intake:it,batch_label:yr+" - Nursing - "+it+" Intake",programme:"Nursing",course_id:"c"+i%6,course_name:CO[i%6],category_id:"k"+i%3,category_name:KA[i%3],other_explanation:null,status_id:ST[i%3][0],status_name:ST[i%3][1],current_level:400,affected_level:L,affected_semester:1+i%2,description:"Sample description of an examination problem for demonstration.",document_count:0,contact:"024123"+(1000+i),course_code:"",created_at:new Date().toISOString(),updated_at:new Date().toISOString()}});
  const from=t=>{const q={f:[],op:"select",pl:null,one:false,lim:1e9,ord:null},b={};
   const match=r=>q.f.every(([k,v])=>String(r[k])===String(v));
-  b.select=()=>b;b.or=()=>b;b.eq=(k,v)=>{q.f.push([k,v]);return b};b.limit=n=>{q.lim=n;return b};b.order=k=>{if(!q.ord)q.ord=k;return b};
+  b.select=()=>b;b.or=()=>b;b.eq=(k,v)=>{q.f.push([k,v]);return b};b.limit=n=>{q.lim=n;return b};b.range=()=>b;b.order=k=>{if(!q.ord)q.ord=k;return b};
   b.insert=r=>{q.op="insert";q.pl=r;return b};b.update=r=>{q.op="update";q.pl=r;return b};b.delete=()=>{q.op="delete";return b};b.upsert=r=>{q.op="upsert";q.pl=r;return b};
   const run=async()=>{const a=T[t]||(T[t]=[]);let d=null;
    if(q.op==="insert"){const r={id:id(),is_active:true,sort_order:99,photo:null,message:"",full_name:"",...q.pl};a.push(r);d=[r]}
@@ -323,7 +323,7 @@ function demoClient(){
   if(n==="submit_case")return{data:{status:"ok",reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id()},error:null};
   if(n==="track_case")return{data:{status:"ok",case_status:"Under Review",course:"Anatomy",level:200,semester:1,submitted:new Date().toISOString(),last_updated:new Date().toISOString()},error:null};
   return{data:{status:"ok"},error:null}};
- return{from,rpc,auth:{signInWithPassword:async()=>{inn=true;return{data:{},error:null}},getSession:async()=>({data:{session:inn?{user:{id:"demo"}}:null}}),signOut:async()=>{inn=false;return{}}},
+ return{from,rpc,auth:{mfa:{getAuthenticatorAssuranceLevel:async()=>({data:{currentLevel:"aal1",nextLevel:"aal1"}}),listFactors:async()=>({data:{totp:[]}}),enroll:async()=>({data:{id:"f1",totp:{qr_code:"data:image/svg+xml;utf-8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'/>",secret:"DEMOKEY"}},error:null}),challenge:async()=>({data:{id:"c1"}}),verify:async()=>({error:null})},signInWithPassword:async()=>{inn=true;return{data:{},error:null}},getSession:async()=>({data:{session:inn?{user:{id:"demo"}}:null}}),signOut:async()=>{inn=false;return{}}},
   storage:{from:()=>({remove:async()=>({error:null}),upload:async()=>({error:null}),createSignedUrl:async()=>({data:null})})}}}
 
 let me=null,lk={courses:[],cats:[],sts:[]},rows=[];
@@ -341,6 +341,7 @@ async function boot(){
  const {data:{session}}=await db.auth.getSession(); if(!session)return;
  const {data:p,error:pe}=await db.from("admin_profiles").select("full_name,role,is_active").eq("user_id",session.user.id).maybeSingle();
  if(pe||!p||!p.is_active){await db.auth.signOut();return note($("lm"),pe?"Database error: "+pe.message:"You signed in, but this email is not registered as an administrator yet. Run the admin_profiles insert in Supabase.")}
+ const gate=await mfaGate();if(gate)return;
  me={id:session.user.id,...p};$("login").hidden=true;$("app").hidden=false;document.querySelector('nav [data-t="audit"]').hidden=me.role!=="super_admin";$("who").textContent=p.full_name+" ("+p.role+")";
  await lookups();tab("overview")}
 async function lookups(){
@@ -582,7 +583,7 @@ async function website(){const v=$("v-site");const {data:s}=await db.from("site_
  sv.onclick=async()=>{const r=(k,val)=>({key:k,value:val,is_public:true,updated_by:me.id});
   const {error}=await db.from("site_settings").upsert([r("welcome_title",t.value),r("welcome_message",m.value),r("reporting_instructions",ins.value)]);
   note(msg,error?"Only the super administrator can change this.":"Saved. Refresh the public page to see it.",!error)};
- const tm=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),heroCard(),qrCard(),el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
+ const tm=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),mfaCard(),heroCard(),qrCard(),el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
  await teamEditor(tm)}
 async function teamEditor(box){const {data}=await db.from("team_members").select("*").order("sort_order").order("role_title");const m=el("div");
  const add=el("button",{className:"b g",textContent:"+ Add team member"});
@@ -605,13 +606,59 @@ const COURSES_2025NJ=[[100, "NURS103", "Basic Nursing I"], [100, "NURS104", "Bas
 const COURSES_2024NS=[[100, "NURS104", "Basic Nursing I"], [100, "NURS105", "Basic Nursing II"], [100, "NURS106", "Human Anatomy I"], [100, "NURS108", "Human Physiology I"], [100, "NURS109", "Pathology"], [100, "NURS110", "Communication Skills I"], [100, "NURS113", "Introduction to General Psychology"], [100, "NURS114", "Therapeutic Communication"], [100, "NURS115", "Health Promotion"], [100, "NURS117", "Introduction to Christianity"], [100, "PURC102", "Introduction to African Studies"], [100, "PURC107", "Christianity and Professional Ethics"], [100, "PURC114", "French I"], [100, "PURC105", "French II"], [100, "PURC109", "Statistics"], [100, "NURS102", "Title to be confirmed (NURS102)"], [100, "NURS103", "Title to be confirmed (NURS103)"], [100, "NURS111", "Title to be confirmed (NURS111)"], [200, "NURS101", "Title to be confirmed (NURS101)"], [200, "NURS201", "Advanced Nursing I"], [200, "NURS202", "Advanced Nursing I (Medical and Surgical Nursing)"], [200, "NURS206", "Nursing Process"], [200, "NURS207", "Nursing Practicals I (Advanced Nursing)"], [200, "NURS208", "Nursing Practicals II (General Nursing, Medical and Surgical/Physical Assessment)"], [200, "NURS209", "Medicine and Medical Nursing I"], [200, "NURS210", "Theories in Nursing"], [200, "NURS211", "Microbiology and Infection Prevention"], [200, "NURS212", "Medical Sociology and Traditional Medicine"], [200, "NURS215", "Title to be confirmed (NURS215)"], [200, "NURS217", "Leadership, Development and Society"], [200, "NURS219", "Surgical and Surgical Nursing II"], [200, "NURS222", "Title to be confirmed (NURS222)"], [200, "NURS720", "Title to be confirmed (NURS720)"], [200, "PURC201", "Title to be confirmed (PURC201)"], [200, "PURC301", "Title to be confirmed (PURC301)"]];
 const COURSES_2024MJ=[[100, "MWF101", "Basic Nursing I"], [100, "MWF103", "Communication Skills I"], [100, "MWF105", "Basic Nursing II"], [100, "MWF107", "Human Anatomy II"], [100, "MWF108", "Human Physiology II"], [100, "MWF109", "Health Promotion"], [100, "MWF112", "Nutrition and Dietetics"], [100, "MWF113", "Introduction to General Psychology"], [100, "MWFP106", "Behavioural Sciences"], [100, "MWFP204", "First Aid, Emergency Nursing and Disaster Management"], [100, "MWFP205", "Introduction to Christianity"], [100, "MWFP206", "Introduction to African Studies"], [100, "MWFP208", "IT and Computer Fundamentals"], [100, "MWFP211", "Microbiology and Infection Prevention"], [100, "PURC105", "French I"], [100, "PURC107", "Christianity and Professional Ethics"], [100, "PURC109", "French II"], [100, "PURC114", "Therapeutic Communication"], [200, "MWFP202", "Biochemistry for Midwives"], [200, "MWFP203", "Nursing Process"], [200, "MWFP209", "Advanced Nursing"], [200, "MWFP210", "Medical Nursing I"], [200, "MWFP213", "Human Reproductive Anatomy and Foetus I"], [200, "MWFP214", "Human Reproductive Anatomy and Foetus II"], [200, "MWFP216", "Human Reproductive Physiology and Foetus I"], [200, "MWFP218", "Human Reproductive Physiology and Foetus II"], [200, "MWFP220", "Physiology and Management of Normal Pregnancy"], [200, "MWFP222", "Child Protection and Abuse"], [200, "MWFP301", "Physiology and Management of Normal Puerperium and Neonates"], [200, "MWFP303", "Physiology and Management of Normal Labour II"], [200, "MWFP305", "Midwifery Practicum I"], [200, "MWFP307", "Nursing Practicum III (Advanced Nursing)"], [200, "MWFP311", "Public Health Nursing"], [200, "MWFP313", "Research Methods I"], [200, "PURC201", "Title to be confirmed (PURC201)"], [200, "PURC301", "Title to be confirmed (PURC301)"], [300, "MWFP303", "Advanced Midwifery and Theatre Nursing"], [300, "MWFP309", "Epidemiology and Family Studies"], [300, "MWFP315", "Pharmacology, Therapeutics and Pharmacovigilance I"], [300, "MWFP321", "Physiology and Management of Abnormal Labour/Emergency Management"], [300, "MWFP307", "Midwifery Practicum II (Normal and Abnormal Pregnancy, Labour and Puerperium)"]];
 const PRESETS=[{label:"2024 Nursing January (Levels 100 to 300)",year:2024,programme:"Nursing",intake:"January",rows:COURSES_2024J},{label:"2025 Nursing January (Levels 100 and 200)",year:2025,programme:"Nursing",intake:"January",rows:COURSES_2025NJ},{label:"2024 Nursing September (Levels 100 and 200)",year:2024,programme:"Nursing",intake:"September",rows:COURSES_2024NS},{label:"2024 Midwifery January (Levels 100 to 300)",year:2024,programme:"Midwifery",intake:"January",rows:COURSES_2024MJ}];
+async function mfaGate(){
+ const {data:aal}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
+ if(aal&&aal.nextLevel==="aal2"&&aal.currentLevel!=="aal2"){mfaPrompt();return true}
+ const {data:rq}=await db.from("site_settings").select("value").eq("key","require_mfa").maybeSingle();
+ if(rq&&rq.value===true&&!(aal&&aal.currentLevel==="aal2")){mfaEnrollScreen();return true}
+ return false}
+async function mfaPrompt(){const {data:f}=await db.auth.mfa.listFactors();const fac=((f&&f.totp)||[]).find(x=>x.status==="verified");
+ if(!fac)return note($("lm"),"No authenticator is set up for this account.");
+ const inp=el("input",{type:"text",inputMode:"numeric",maxLength:6,placeholder:"6-digit code",autocomplete:"one-time-code",style:"width:100%;margin:6px 0"});
+ const btn=el("button",{className:"b",textContent:"Verify",style:"width:100%"}),m=el("div");
+ const go=async()=>{const c=await db.auth.mfa.challenge({factorId:fac.id});if(c.error)return note(m,"Could not start verification.");
+  const v=await db.auth.mfa.verify({factorId:fac.id,challengeId:c.data.id,code:inp.value.trim()});if(v.error)return note(m,"Wrong code. Try again.");boot()};
+ btn.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()};
+ $("login").replaceChildren(el("h2",{textContent:"Two-step sign-in"}),el("div",{textContent:"Enter the 6-digit code from your authenticator app.",style:"color:var(--mute)"}),inp,btn,m);$("login").hidden=false;inp.focus()}
+async function mfaEnroll(box,after){const m=el("div");const {data,error}=await db.auth.mfa.enroll({factorType:"totp",friendlyName:"Admin "+Date.now()});
+ if(error)return box.replaceChildren(el("div",{className:"amsg",textContent:"Could not start setup: "+error.message}));
+ const inp=el("input",{type:"text",inputMode:"numeric",maxLength:6,placeholder:"6-digit code",style:"width:100%;margin:6px 0"}),btn=el("button",{className:"b",textContent:"Confirm and turn on"});
+ btn.onclick=async()=>{const c=await db.auth.mfa.challenge({factorId:data.id});if(c.error)return note(m,"Could not verify.");
+  const v=await db.auth.mfa.verify({factorId:data.id,challengeId:c.data.id,code:inp.value.trim()});if(v.error)return note(m,"Wrong code.");note(m,"Two-step sign-in is now ON for your account.",true);if(after)after()};
+ box.replaceChildren(el("div",{textContent:"1. Scan this QR code with Google Authenticator, Microsoft Authenticator or Authy. 2. Type the 6-digit code it shows."}),el("img",{src:data.totp.qr_code,alt:"QR code",style:"width:200px;height:200px;background:#fff;display:block;margin:8px 0"}),el("div",{textContent:"Or type this key: "+data.totp.secret,style:"font-family:monospace;word-break:break-all"}),inp,btn,m)}
+function mfaEnrollScreen(){const box=el("div");$("login").replaceChildren(el("h2",{textContent:"Set up two-step sign-in"}),box);$("login").hidden=false;mfaEnroll(box,()=>boot())}
+function mfaCard(){const box=el("div"),msg=el("div");
+ const en=el("button",{className:"b g",textContent:"Set up two-step sign-in (MFA) for my account"});en.onclick=()=>mfaEnroll(box);
+ const req=el("button",{className:"b g",textContent:"Require MFA for ALL admins"}),off=el("button",{className:"b g",textContent:"Stop requiring MFA"});
+ const setReq=async v=>{if(v&&!confirm("Every admin must already have two-step sign-in set up, or they will be locked out. Continue?"))return;
+  const {error}=await db.from("site_settings").upsert([{key:"require_mfa",value:v,is_public:true,updated_by:me.id}]);note(msg,error?"Only the super administrator can change this.":(v?"MFA is now REQUIRED for all admins.":"MFA is no longer required."),!error)};
+ req.onclick=()=>setReq(true);off.onclick=()=>setReq(false);
+ return el("div",{className:"card"},el("h3",{textContent:"Security: two-step sign-in"}),el("div",{textContent:"Strongly recommended. When required, the database itself refuses admin access until the authenticator code is entered.",style:"color:var(--mute);margin-bottom:8px"}),en,box,el("div",{className:"arow"},req,off),msg)}
+async function deletedCard(){const {data,error}=await db.from("deleted_cases").select("id,deleted_at,snapshot").order("deleted_at",{ascending:false}).limit(100);
+ const box=el("div",{className:"card"},el("h3",{textContent:"Deleted reports (can be restored)"})),m=el("div");
+ if(error||!data||!data.length){box.append(el("div",{textContent:error?"Not available yet (run SECURITY_UPGRADE.sql).":"No deleted reports.",style:"color:var(--mute)"}));return box}
+ const t=el("table",{},el("tr",{},...["Deleted","Student","Index","Reference","Restore"].map(h=>el("th",{textContent:h}))));
+ data.forEach(r=>{const sn=r.snapshot||{},cs=sn.case||{},b=el("button",{className:"b g",textContent:"Restore"});
+  b.onclick=async()=>{if(!confirm("Restore report "+(cs.reference_number||"")+"?"))return;const {data:d,error:e}=await db.rpc("admin_restore_case",{p_deleted_id:r.id});
+   const bad=e||(d&&d.status!=="ok");note(m,bad?"Could not restore: "+((d&&d.message)||(e&&e.message)):"Report restored.",!bad);if(!bad)auditLog()};
+  t.append(el("tr",{},...[new Date(r.deleted_at).toLocaleString(),sn.student_name||"",sn.index_number||"",cs.reference_number||""].map(x=>el("td",{textContent:x})),el("td",{},b)))});
+ box.append(el("div",{className:"wrap"},t),m);return box}
+function backupCard(){const m=el("div"),b=el("button",{className:"b",textContent:"Download full backup (JSON)"});
+ b.onclick=async()=>{b.disabled=true;note(m,"Preparing backup...",true);
+  const grab=async(tbl,ord)=>{let all=[],from=0;for(;;){const {data,error}=await db.from(tbl).select("*").order(ord).range(from,from+999);if(error)throw error;all=all.concat(data);if(data.length<1000)break;from+=1000}return all};
+  try{const out={created:new Date().toISOString()};
+   for(const [k,o] of [["v_cases_full","created_at"],["students","created_at"],["courses","name"],["course_assignments","created_at"],["admission_batches","admission_year"],["issue_categories","sort_order"],["case_statuses","sort_order"],["case_notes","created_at"],["case_status_history","changed_at"],["deleted_cases","deleted_at"]])out[k]=await grab(k,o);
+   await db.rpc("log_export",{p_description:"Full backup"});
+   el("a",{href:URL.createObjectURL(new Blob([JSON.stringify(out)],{type:"application/json"})),download:"exam-platform-backup-"+new Date().toISOString().slice(0,10)+".json"}).click();note(m,"Backup downloaded. Keep it somewhere private and safe.",true)}
+  catch(e){note(m,"Backup failed: "+(e.message||e))}b.disabled=false};
+ return el("div",{className:"card"},el("h3",{textContent:"Backup"}),el("div",{textContent:"Contains private student details. Store it in a private place.",style:"color:var(--mute);margin-bottom:8px"}),b,m)}
 async function auditLog(){const v=$("v-audit");
  const {data,error}=await db.from("audit_logs").select("id,actor_id,action,table_name,record_id,created_at").order("id",{ascending:false}).limit(200);
  if(error)return v.replaceChildren(el("div",{className:"amsg",textContent:"Only the super administrator can view the audit log."}));
  const {data:ps}=await db.from("admin_profiles").select("user_id,full_name");const nm2={};(ps||[]).forEach(p=>{nm2[p.user_id]=p.full_name});
  const t=el("table",{},el("tr",{},...["When","Who","Action","Table","Record"].map(h=>el("th",{textContent:h}))));
  (data||[]).forEach(r=>t.append(el("tr",{},...[new Date(r.created_at).toLocaleString(),nm2[r.actor_id]||(r.actor_id?String(r.actor_id).slice(0,8):"system"),r.action,r.table_name||"",String(r.record_id||"").slice(0,13)].map(x=>el("td",{textContent:x})))));
- v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Audit log (latest 200 actions, cannot be edited or deleted)"}),(data&&data.length)?el("div",{className:"wrap"},t):el("div",{textContent:"No entries yet.",style:"color:var(--mute)"})))}
+ v.replaceChildren(backupCard(),await deletedCard(),el("div",{className:"card"},el("h3",{textContent:"Audit log (latest 200 actions, cannot be edited or deleted)"}),(data&&data.length)?el("div",{className:"wrap"},t):el("div",{textContent:"No entries yet.",style:"color:var(--mute)"})))}
 async function courseBatches(){const v=$("v-courses");
  const sy=el("select"),sp=el("select"),si=el("select"),sl=el("select"),m=el("div"),body=el("div"),q=el("input",{type:"text",placeholder:"Search courses in this group",style:"width:100%;margin-top:8px"});
  for(let y=2023;y<=2040;y++)sy.append(new Option(y+" Year Batch",y));
