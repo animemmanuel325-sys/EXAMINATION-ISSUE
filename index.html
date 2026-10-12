@@ -147,7 +147,19 @@ body{background:#f4faf8}
 .rv{opacity:0;transform:translateY(30px) scale(.98);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1);animation:none!important}
 .rv.in{opacity:1;transform:none;transition:transform .25s,box-shadow .25s,opacity .3s}
 @media(prefers-reduced-motion:reduce){.rv{opacity:1;transform:none}}
+/* ===== FULL-PAGE PICTURE SLIDESHOW (uploaded by the super admin) ===== */
+#bgimgs{position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden}
+#bgimgs .sl{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1.8s ease}
+#bgimgs .sl.on{opacity:1;animation:kb 16s ease-in-out infinite alternate}
+@keyframes kb{from{transform:scale(1.02)}to{transform:scale(1.12) translate(-1.5%,-1%)}}
+body.has-img #bg{background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.22))}
+body.has-img #bg .b{opacity:.16}body.has-img #bg svg{opacity:.4}
+body.has-img header{background:linear-gradient(120deg,rgba(11,95,179,.6),rgba(14,143,138,.52) 52%,rgba(22,163,74,.52));background-size:220% 220%}
+body.has-img .card{background:rgba(255,255,255,.88);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+body.has-img footer{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
 </style></head><body>
+<div id="bgimgs" aria-hidden="true"></div>
 <div id="bg" aria-hidden="true"><i class="b b1"></i><i class="b b2"></i><i class="b b3"></i><i class="b b4"></i>
 <svg class="e1" viewBox="0 0 800 120" preserveAspectRatio="none"><path d="M0 70H120l15-40 20 80 20-70 12 30H330l15-40 20 80 20-70 12 30H540l15-40 20 80 20-70 12 30H800"/></svg>
 <svg class="e2" viewBox="0 0 800 120" preserveAspectRatio="none"><path d="M0 70H90l15-40 20 80 20-70 12 30H300l15-40 20 80 20-70 12 30H520l15-40 20 80 20-70 12 30H800"/></svg>
@@ -355,8 +367,12 @@ function tab(t){["overview","cases","courses","cats","site","audit"].forEach(x=>
  document.querySelectorAll("nav [data-t]").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
  if(t==="overview")overview();if(t==="cases")loadCases();if(t==="courses")courseBatches();if(t==="cats")manage("issue_categories","v-cats","Issue types");if(t==="site")website();if(t==="audit")auditLog()}
 
-async function overview(){const v=$("v-overview");const {data,error}=await db.rpc("dashboard_stats");
- if(error)return v.replaceChildren(el("div",{className:"amsg",textContent:"Could not load statistics."}));
+async function statsFallback(){try{const [c,cs]=await Promise.all([db.from("v_cases_full").select("course_name,affected_level,affected_semester,status_name,index_number,batch_label").limit(5000),db.from("courses").select("id,is_active")]);
+ if(c.error||cs.error)return null;const r=c.data,cnt=f=>r.reduce((o,x)=>{const k=f(x);o[k]=(o[k]||0)+1;return o},{});
+ return{total_cases:r.length,unique_students:new Set(r.map(x=>x.index_number)).size,active_courses:cs.data.filter(x=>x.is_active).length,batches_represented:new Set(r.map(x=>x.batch_label)).size,by_level:cnt(x=>x.affected_level),by_semester:cnt(x=>x.affected_semester||"Not specified"),by_status:cnt(x=>x.status_name),top_courses:Object.entries(cnt(x=>x.course_name)).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([course,cases])=>({course,cases}))}}catch(e){return null}}
+async function overview(){const v=$("v-overview");let {data,error}=await db.rpc("dashboard_stats");
+ if(error||!data){const f=await statsFallback();if(f){data=f;error=null}}
+ if(error||!data)return v.replaceChildren(el("div",{className:"amsg",textContent:"Could not load statistics: "+((error&&error.message)||"no data")}));
  const st=(l,n)=>el("div",{className:"card stat"},el("b",{textContent:n}),l);
  const list=(t,o)=>el("div",{className:"card"},el("b",{textContent:t}),...Object.entries(o).map(([k,n])=>el("div",{textContent:k+": "+n})));
  v.replaceChildren(el("div",{className:"grid"},st("Total cases",data.total_cases),st("Unique students",data.unique_students),st("Active courses",data.active_courses),st("Batches represented",data.batches_represented)),
@@ -504,7 +520,7 @@ async function init(){
     categories = k.data;
     s.data.forEach(r=>{ cfg[r.key]=r.value; });
     if(cfg.site_title) document.title=cfg.site_title;
-    if(typeof cfg.hero_image==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(cfg.hero_image)) $("hero").style.background="linear-gradient(rgba(4,36,42,.72),rgba(4,36,42,.72)),url("+cfg.hero_image+") center/cover";
+    setSlides([cfg.hero_image,cfg.bg_image_1,cfg.bg_image_2,cfg.bg_image_3,cfg.bg_image_4,cfg.bg_image_5,cfg.bg_image_6].filter(validImg));
     if(cfg.welcome_title) $("siteTitle").textContent=cfg.welcome_title;
     if(cfg.welcome_message) $("welcomeMsg").textContent=cfg.welcome_message;
     if(cfg.reporting_instructions) $("instructions").textContent=cfg.reporting_instructions;
@@ -583,7 +599,7 @@ async function website(){const v=$("v-site");const {data:s}=await db.from("site_
  sv.onclick=async()=>{const r=(k,val)=>({key:k,value:val,is_public:true,updated_by:me.id});
   const {error}=await db.from("site_settings").upsert([r("welcome_title",t.value),r("welcome_message",m.value),r("reporting_instructions",ins.value)]);
   note(msg,error?"Only the super administrator can change this.":"Saved. Refresh the public page to see it.",!error)};
- const tm=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),mfaCard(),heroCard(),qrCard(),el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
+ const tm=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),mfaCard(),bgCard(s),qrCard(),el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
  await teamEditor(tm)}
 async function teamEditor(box){const {data}=await db.from("team_members").select("*").order("sort_order").order("role_title");const m=el("div");
  const add=el("button",{className:"b g",textContent:"+ Add team member"});
@@ -592,9 +608,7 @@ async function teamEditor(box){const {data}=await db.from("team_members").select
   const img=el("img",{style:"width:90px;height:90px;border-radius:50%;object-fit:cover;background:var(--line)"});if(photo)img.src=photo;
   const ti=el("input",{type:"text",value:x.role_title,maxLength:100,placeholder:"Role e.g. Head of Department"}),na=el("input",{type:"text",value:x.full_name,maxLength:150,placeholder:"Full name"}),
    ms=el("textarea",{value:x.message||"",maxLength:400,placeholder:"Short message or phrase to show under the name (optional)",style:"width:100%"}),or=el("input",{type:"number",value:x.sort_order,style:"width:80px"}),fi=el("input",{type:"file",accept:"image/jpeg,image/png,image/webp"}),ac=el("input",{type:"checkbox",checked:x.is_active});
-  fi.onchange=()=>{const f=fi.files[0];if(!f)return;
-   if(!["image/jpeg","image/png","image/webp"].includes(f.type)||f.size>204800){fi.value="";return note(m,"Photo must be JPG, PNG or WebP and at most 200 KB.")}
-   const r=new FileReader();r.onload=()=>{photo=r.result;img.src=photo;note(m,"Photo chosen. Press Save.",true)};r.readAsDataURL(f)};
+  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{photo=await compressImage(f,190000,700);img.src=photo;note(m,"Photo chosen. Press Save.",true)}catch(e){fi.value="";note(m,"Could not use that picture. Please choose a JPG, PNG or WebP.")}};
   const sv=el("button",{className:"b",textContent:"Save"});
   sv.onclick=async()=>{const {error}=await db.from("team_members").update({role_title:ti.value.trim(),full_name:na.value.trim(),photo,sort_order:+or.value||100,is_active:ac.checked,...(("message" in x)?{message:ms.value.trim()||null}:{})}).eq("id",x.id);note(m,error?"Could not save (photo over 200 KB or wrong role).":"Saved.",!error)};
   const rp=el("button",{className:"b g",textContent:"Remove photo"});rp.onclick=()=>{photo=null;img.removeAttribute("src")};
@@ -702,11 +716,27 @@ async function courseBatches(){const v=$("v-courses");
   btn.disabled=false;note(qm,"Finished: "+added+" added, "+skipped+" already there, "+failed+" failed."+(firstErr?" Reason: "+firstErr:""),!failed);await lookups();load()};
  PRESETS.forEach(pr=>{const bt=el("button",{className:"b",textContent:"Load "+pr.label});bt.onclick=()=>runPreset(pr,bt);qbox.append(bt)});
  v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Courses by year batch, programme, intake and level"}),el("div",{className:"f"},sy,sp,si,sl),q,m),el("div",{className:"card"},el("h3",{textContent:"Quick load"}),el("div",{textContent:"Loads the course lists you have sent, in one click. Courses already there are skipped.",style:"color:var(--mute);margin-bottom:8px"}),qbox,qm),body);load()}
-function heroCard(){const msg=el("div"),fi=el("input",{type:"file",accept:"image/jpeg,image/png,image/webp"});
- const save=async v=>{const {error}=await db.from("site_settings").upsert([{key:"hero_image",value:v,is_public:true,updated_by:me.id}]);note(msg,error?"Only the super administrator can change this.":(v?"Banner picture saved. Refresh the public page to see it.":"Banner picture removed."),!error)};
- fi.onchange=()=>{const f=fi.files[0];if(!f)return;if(!["image/jpeg","image/png","image/webp"].includes(f.type)||f.size>204800){fi.value="";return note(msg,"Picture must be JPG, PNG or WebP and at most 200 KB.")}const r=new FileReader();r.onload=()=>save(r.result);r.readAsDataURL(f)};
- const rm=el("button",{className:"b g",textContent:"Remove picture"});rm.onclick=()=>save("");
- return el("div",{className:"card"},el("h3",{textContent:"Welcome banner picture"}),el("div",{textContent:"Upload a photo of a nurse at work, for example in the ICU. Use your own photo or a free-to-use one. Maximum 200 KB.",style:"color:var(--mute);margin-bottom:8px"}),fi,rm,msg)}
+const validImg=u=>typeof u==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(u);
+let slideT;function setSlides(list){const box=$("bgimgs");box.replaceChildren();clearInterval(slideT);document.body.classList.toggle("has-img",list.length>0);
+ list.forEach((u,i)=>{const d=el("div",{className:"sl"+(i===0?" on":"")});d.style.backgroundImage='url("'+u+'")';box.append(d)});
+ if(list.length>1){let k=0;slideT=setInterval(()=>{const ss=box.children;ss[k].classList.remove("on");k=(k+1)%ss.length;ss[k].classList.add("on")},7000)}}
+function compressImage(file,maxBytes,maxDim){return new Promise((res,rej)=>{if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>12*1048576)return rej(new Error("type"));
+ const fr=new FileReader();fr.onerror=()=>rej(new Error("read"));fr.onload=()=>{const img=new Image();img.onerror=()=>rej(new Error("bad"));img.onload=()=>{
+  let W=img.width,H=img.height;const sc=Math.min(1,maxDim/Math.max(W,H));W=Math.round(W*sc);H=Math.round(H*sc);const c=document.createElement("canvas");let q=.85,out="";
+  for(let i=0;i<14;i++){c.width=W;c.height=H;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);out=c.toDataURL("image/jpeg",q);if(out.length*.75<=maxBytes)break;if(q>.45)q-=.1;else{W=Math.round(W*.8);H=Math.round(H*.8)}}
+  out.length*.75<=maxBytes?res(out):rej(new Error("big"))};img.src=fr.result};fr.readAsDataURL(file)})}
+function bgCard(s){const keys=[1,2,3,4,5,6].map(i=>"bg_image_"+i),cur={},msg=el("div"),grid=el("div",{className:"f"});
+ keys.forEach(k=>{const r=(s||[]).find(x=>x.key===k);cur[k]=r&&typeof r.value==="string"?r.value:""});
+ const refresh=()=>setSlides(keys.map(k=>cur[k]).filter(validImg));
+ const save=async(k,v)=>{const {error}=await db.from("site_settings").upsert([{key:k,value:v,is_public:true,updated_by:me.id}]);if(error){note(msg,"Only the super administrator can change the pictures.");return false}cur[k]=v;refresh();return true};
+ const draw=()=>{grid.replaceChildren();keys.forEach((k,i)=>{const v=cur[k],th=el("div",{style:"flex:1 1 150px;text-align:center"});
+  th.append(v?el("img",{src:v,alt:"",style:"width:100%;height:90px;object-fit:cover;border-radius:8px"}):el("div",{textContent:"Empty slot "+(i+1),style:"height:90px;border:1px dashed var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--mute)"}));
+  const fi=el("input",{type:"file",accept:"image/jpeg,image/png,image/webp",style:"margin-top:6px"});
+  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{note(msg,"Preparing picture...",true);const d=await compressImage(f,190000,1920);if(await save(k,d)){note(msg,"Picture "+(i+1)+" saved. It now shows on the whole website.",true);draw()}}catch(e){note(msg,"Could not use that picture. Please choose a JPG, PNG or WebP.")}};
+  th.append(fi);if(v){const rm=el("button",{className:"b g",textContent:"Remove",style:"margin-top:6px"});rm.onclick=async()=>{if(await save(k,"")){note(msg,"Picture removed.",true);draw()}};th.append(rm)}
+  grid.append(th)})};
+ draw();
+ return el("div",{className:"card"},el("h3",{textContent:"Background pictures (slideshow behind the whole website)"}),el("div",{textContent:"Upload up to 6 pictures, for example nurses at work in the ICU. They fill the whole page behind everything, public site and admin pages, and flip by themselves. Large pictures are shrunk to about 200 KB automatically.",style:"color:var(--mute);margin-bottom:8px"}),grid,msg)}
 function qrCard(){const c=el("div",{className:"card"},el("h3",{textContent:"QR code for this website"}));const url=location.href.split("#")[0];
  if(typeof qrcode==="undefined"){c.append("The QR library did not load. Refresh and try again.");return c}
  const q=qrcode(0,"M");q.addData(url);q.make();
