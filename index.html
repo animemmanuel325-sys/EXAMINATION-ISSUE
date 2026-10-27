@@ -211,6 +211,7 @@ body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
       <input id="lHp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;height:0;width:0;opacity:0">
       <div id="lMsg"></div>
       <button class="go" id="lBtn" type="submit">Log in</button>
+      <div class="msg warn" id="forgotBox" style="margin-top:14px"><b>Forgot your password?</b><br>Contact your course rep and pay <b>10 cedis</b>, or contact <a href="tel:0209684674" style="font-weight:700">0209684674</a> (<a href="https://wa.me/233209684674" target="_blank" rel="noopener noreferrer" style="font-weight:700">WhatsApp</a>).</div>
     </form>
     <form id="regF" autocomplete="off" novalidate hidden>
       <label for="rId">Student ID (index number)</label><input id="rId" maxlength="30" autocapitalize="characters" required>
@@ -788,7 +789,7 @@ async function studentAccounts(){const v=$("v-students"),q=el("input",{type:"tex
    t.append(el("tr",{},...[a.index_number,a.full_name,a.batch,a.contact,a.reports,a.last_login_at?new Date(a.last_login_at).toLocaleString():"never",a.locked?"Locked":(a.is_active?"Active":"Off")].map(x=>el("td",{textContent:x})),el("td",{},rs,tg,dl)))});
   box.replaceChildren((data&&data.length)?el("div",{className:"wrap"},t):el("div",{textContent:"No student accounts yet.",style:"color:var(--mute)"}))};
  q.oninput=()=>{clearTimeout(q._t);q._t=setTimeout(load,300)};
- v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Student accounts"}),el("div",{textContent:"Students create their own account with their student ID. If someone registered an ID that is not theirs, Delete that account so the real student can register. Reset gives a temporary password.",style:"color:var(--mute);margin-bottom:8px"}),q,m),el("div",{className:"card"},box));load()}
+ v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Student accounts"}),el("div",{textContent:"Students create their own account with their student ID. If someone registered an ID that is not theirs, Delete that account so the real student can register. Reset gives a temporary password. Students who forget their password are told to contact their course rep and pay 10 cedis, or call 0209684674: use Reset password for them after that.",style:"color:var(--mute);margin-bottom:8px"}),q,m),el("div",{className:"card"},box));load()}
 async function auditLog(){const v=$("v-audit");
  const {data,error}=await db.from("audit_logs").select("id,actor_id,action,table_name,record_id,created_at").order("id",{ascending:false}).limit(200);
  if(error)return v.replaceChildren(el("div",{className:"amsg",textContent:"Only the super administrator can view the audit log."}));
