@@ -181,6 +181,7 @@ body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
 <div class="card"><b>2. Report</b><br><small>Choose your level, tick every course with a problem and submit.</small></div>
 <div class="card"><b>3. Track</b><br><small>See all your reports and their progress under My reports, or use a reference number.</small></div></div>
 <section class="card" id="teamCard"><h2 style="margin-top:0">Meet Our Department Leadership</h2><div class="grid" id="teamGrid"></div></section>
+<section class="card" id="contactCard" hidden><h2 style="margin-top:0">Contact us</h2><div class="grid" id="contactList"></div></section>
 </div>
 <div id="portal" hidden>
 <button class="sec" id="backHome" type="button">&larr; Back to welcome page</button>
@@ -197,6 +198,11 @@ body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
       <label for="oldPw">Current password</label><input id="oldPw" type="password" autocomplete="current-password" maxlength="72">
       <label for="newPw">New password <small>(8+ characters, letters and numbers)</small></label><input id="newPw" type="password" autocomplete="new-password" maxlength="72">
       <button class="go" id="pwBtn" type="button">Save new password</button>
+    </div>
+    <div id="typeBox" style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
+      <label for="stType" style="margin-top:0">My programme type</label>
+      <div class="arow"><select id="stType" style="flex:1"><option value="">Select</option><option value="Regular">Regular</option><option value="Assess">Assess</option><option value="Top-Up">Top-Up</option></select><button class="sec" id="typeBtn" type="button">Save</button></div>
+      <small id="typeNote"></small>
     </div>
     <div id="acctMsg"></div>
   </div>
@@ -221,6 +227,8 @@ body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
       <select id="rProg" required><option value="">Select</option><option value="Nursing">Nursing</option><option value="Midwifery">Midwifery</option></select>
       <label for="rInt">Which intake were you admitted under?</label>
       <select id="rInt" required><option value="">Select</option><option value="January">January Intake</option><option value="September">September Intake</option></select>
+      <label for="rType">What type of student are you?</label>
+      <select id="rType" required><option value="">Select</option><option value="Regular">Regular</option><option value="Assess">Assess</option><option value="Top-Up">Top-Up</option></select>
       <label for="rPhone">Phone / WhatsApp number</label><input id="rPhone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="e.g. 0241234567" required>
       <small>Used only by the department to contact you about your results.</small>
       <label for="rPw">Choose a password <small>(8+ characters, letters and numbers)</small></label><input id="rPw" type="password" maxlength="72" autocomplete="new-password" required>
@@ -342,7 +350,7 @@ function demoClient(){
   case_notes:[],case_status_history:[],case_documents:[],
   site_settings:[{key:"welcome_title",value:"Welcome to the Nursing and Midwifery Department Examination Results Resolution Platform",is_public:true},{key:"max_upload_mb",value:5,is_public:true},{key:"allowed_mime_types",value:["image/jpeg","image/png","application/pdf"],is_public:true},{key:"max_files_per_case",value:3,is_public:true},{key:"tracking_enabled",value:true,is_public:true}],
   team_members:[["Head of Department (HOD)","Dr. Sample Name","Your success is our priority."],["Administrator","Sample Administrator",""],["Nursing Coordinator","Sample Coordinator",""],["Clinical Coordinator","Sample Clinical Coordinator",""]].map((a,i)=>({id:"t"+i,role_title:a[0],full_name:a[1],message:a[2],photo:null,sort_order:i*10,is_active:true}))};
- T.accts=[];T.sess={};const prof=ac=>({index_number:ac.idx,full_name:ac.name,contact:ac.contact,year:ac.year,programme:ac.prog,intake:ac.intake});const byTok=t=>{const i=T.sess[t];return T.accts.find(x=>x.id===i&&x.active)};
+ T.accts=[];T.sess={};T.extras={};T.site_contacts=[{id:"sc1",kind:"phone",label:"Course rep / help line",value:"0209684674",help_contact:true,sort_order:10,is_active:true},{id:"sc2",kind:"whatsapp",label:"WhatsApp",value:"0209684674",help_contact:true,sort_order:20,is_active:true},{id:"sc3",kind:"email",label:"Department email",value:"department@example.com",help_contact:false,sort_order:30,is_active:true}];const prof=ac=>({index_number:ac.idx,full_name:ac.name,contact:ac.contact,year:ac.year,programme:ac.prog,intake:ac.intake});const byTok=t=>{const i=T.sess[t];return T.accts.find(x=>x.id===i&&x.active)};
  const A=(code,name,sem,y,i,l)=>({programme:"Nursing",id:id(),course_id:"c"+CO.indexOf(name),code,name,semester:sem,is_active:true,year:y,intake:i,level:l});
  T.course_assignments=[A("ANA101","Anatomy",1,2024,"January",100),A("PHY101","Physiology",1,2024,"January",100),A("NUR101","Basic Nursing",2,2024,"January",100),A("FAD101","First Aid",1,2024,"September",100)];
  const NM=["Ama Mensah","Kofi Boateng","Esi Quaye","Yaw Owusu","Abena Asare","Kwame Darko","Efua Addo","Nana Appiah"];
@@ -380,6 +388,11 @@ function demoClient(){
     ac.rep.unshift({reference:ref,course:as?(as.code+" - "+as.name):"Course",level:a.p_level,semester:as?as.semester:null,issue:(T.issue_categories.find(k=>k.id===x.category_id)||{}).name||"",status:"New",submitted:new Date().toISOString(),updated:new Date().toISOString()});
     return{reference_number:ref,case_id:id(),assignment_id:x.assignment_id}});return{data:{status:"ok",cases:cs},error:null}}
   if(n==="admin_list_student_accounts")return{data:T.accts.map(x=>({id:x.id,index_number:x.idx,full_name:x.name,contact:x.contact,batch:x.year+" - "+x.prog+" - "+x.intake,created_at:new Date().toISOString(),last_login_at:null,is_active:x.active,locked:false,reports:x.rep.length})),error:null};
+  if(n==="student_get_extras"){const ac=byTok(a.p_token);if(!ac)return{data:{status:"login_required"},error:null};const e=T.extras[ac.idx]||{};return{data:{status:"ok",student_type:e.student_type||null,intake_year:e.intake_year||null},error:null}}
+  if(n==="student_set_type"){const ac=byTok(a.p_token);if(!ac)return{data:{status:"login_required"},error:null};T.extras[ac.idx]=Object.assign(T.extras[ac.idx]||{},{index_number:ac.idx,student_type:a.p_type});return{data:{status:"ok"},error:null}}
+  if(n==="admin_list_student_extras")return{data:Object.values(T.extras),error:null};
+  if(n==="admin_set_student_year"){const k=String(a.p_index).toUpperCase();T.extras[k]=Object.assign(T.extras[k]||{},{index_number:k,intake_year:a.p_year});const ac=T.accts.find(x=>x.idx===k);if(ac)ac.year=a.p_year;return{data:{status:"ok"},error:null}}
+  if(n==="admin_set_student_type"){const k=String(a.p_index).toUpperCase();T.extras[k]=Object.assign(T.extras[k]||{},{index_number:k,student_type:a.p_type});return{data:{status:"ok"},error:null}}
   if(n==="admin_reset_student_password"){const ac=T.accts.find(x=>x.id===a.p_account_id);if(ac)ac.pw=a.p_new;return{data:{status:"ok"},error:null}}
   if(n==="admin_set_student_active"){const ac=T.accts.find(x=>x.id===a.p_account_id);if(ac)ac.active=a.p_active;return{data:{status:"ok"},error:null}}
   if(n==="admin_delete_student_account"){T.accts=T.accts.filter(x=>x.id!==a.p_account_id);return{data:{status:"ok"},error:null}}
@@ -585,11 +598,16 @@ async function init(){
 let SES=null,afterLogin="report",regOpened=Date.now();const TKEY="xst";
 const tokGet=()=>{try{return localStorage.getItem(TKEY)||""}catch(e){return ""}};
 const tokSet=t=>{try{t?localStorage.setItem(TKEY,t):localStorage.removeItem(TKEY)}catch(e){}};
+const TYPES=["Regular","Assess","Top-Up"];
+const typeSuffix=()=>{const t=SES&&SES.extras&&SES.extras.student_type;return t?" ("+t+" student)":""};
+function syncType(){const t=SES&&SES.extras&&SES.extras.student_type;$("stType").value=t||"";$("typeNote").textContent=t?"":"Please choose your programme type (Regular, Assess or Top-Up) and press Save."}
+async function getExtras(t){try{const {data}=await db.rpc("student_get_extras",{p_token:t});return data&&data.status==="ok"?data:{}}catch(e){return{}}}
+const withExtras=(p,x)=>x&&x.intake_year?Object.assign({},p,{year:+x.intake_year}):p;
 function applyProfile(p){$("year").value=String(p.year);$("programme").value=p.programme;$("intake").value=p.intake;
- $("whoAmI").textContent="Reporting as "+p.full_name+" ("+p.index_number+"), "+p.year+" "+p.programme+" "+p.intake+" Intake";
- $("acctWho").textContent=p.full_name+" ("+p.index_number+")";$("ctaLogin").textContent="My account";chain()}
+ $("whoAmI").textContent="Reporting as "+p.full_name+" ("+p.index_number+"), "+p.year+" "+p.programme+" "+p.intake+" Intake"+typeSuffix();
+ $("acctWho").textContent=p.full_name+" ("+p.index_number+")";$("ctaLogin").textContent="My account";syncType();chain()}
 async function restoreSession(){if(SES)return;const t=tokGet();if(!t)return;const {data}=await db.rpc("student_me",{p_token:t});
- if(data&&data.status==="ok"){SES={token:t,profile:data.profile};applyProfile(data.profile)}else tokSet("")}
+ if(data&&data.status==="ok"){const x=await getExtras(t),pr=withExtras(data.profile,x);SES={token:t,profile:pr,extras:x};applyProfile(pr)}else tokSet("")}
 function views(w){["reportView","mineView","trackView"].forEach(id=>$(id).hidden=true);$("authBox").hidden=true;$(w+"View").hidden=false;
  ["Report","Mine","Track"].forEach(n=>$("tab"+n).classList.toggle("on",n.toLowerCase()===w));$("acctBar").hidden=!SES}
 function ptab(w){if(w===true)w="report";if(w===false)w="track";
@@ -599,21 +617,28 @@ function ptab(w){if(w===true)w="report";if(w===false)w="track";
 $("tabReport").onclick=()=>ptab("report");$("tabMine").onclick=()=>ptab("mine");$("tabTrack").onclick=()=>ptab("track");
 $("aLogin").onclick=()=>{$("loginF").hidden=false;$("regF").hidden=true;$("aLogin").classList.add("on");$("aReg").classList.remove("on")};
 $("aReg").onclick=()=>{$("loginF").hidden=true;$("regF").hidden=false;$("aReg").classList.add("on");$("aLogin").classList.remove("on");regOpened=Date.now()};
-function loginOk(d){$("aLogin").click();tokSet(d.token);SES={token:d.token,profile:d.profile};applyProfile(d.profile);formOpened=Date.now();$("doneCard").hidden=true;$("formCard").hidden=false;ptab(afterLogin||"report")}
+async function loginOk(d){$("aLogin").click();tokSet(d.token);const x=await getExtras(d.token),pr=withExtras(d.profile,x);SES={token:d.token,profile:pr,extras:x};applyProfile(pr);formOpened=Date.now();$("doneCard").hidden=true;$("formCard").hidden=false;ptab(afterLogin||"report")}
 $("loginF").addEventListener("submit",async e=>{e.preventDefault();const m=$("lMsg"),btn=$("lBtn");say(m,"");
  if(!$("lId").value.trim()||!$("lPw").value){say(m,"Enter your student ID and password.","bad");return}
  btn.disabled=true;try{const {data,error}=await db.rpc("student_login",{p_index:$("lId").value,p_password:$("lPw").value,p_hp:$("lHp").value});if(error)throw error;
   if(data.status!=="ok"){say(m,data.message||"Could not log in.","bad");return}$("lPw").value="";loginOk(data)}catch(err){say(m,"Something went wrong. Please try again.","bad")}finally{btn.disabled=false}});
 $("regF").addEventListener("submit",async e=>{e.preventDefault();const m=$("rMsg"),btn=$("rBtn");say(m,"");
- for(const id of ["rId","rName","rYear","rProg","rInt","rPhone","rPw","rPw2"]){if(!$(id).value.trim()){say(m,"Please complete every box.","bad");$(id).focus();return}}
+ for(const id of ["rId","rName","rYear","rProg","rInt","rType","rPhone","rPw","rPw2"]){if(!$(id).value.trim()){say(m,"Please complete every box.","bad");$(id).focus();return}}
  if(!/^\+?[0-9 ()-]{7,20}$/.test($("rPhone").value.trim())){say(m,"Please enter a valid phone number.","bad");return}
  if($("rPw").value!==$("rPw2").value){say(m,"The two passwords are not the same.","bad");return}
  if($("rPw").value.length<8||!/[A-Za-z]/.test($("rPw").value)||!/[0-9]/.test($("rPw").value)){say(m,"Password must be 8 or more characters with letters and numbers.","bad");return}
  btn.disabled=true;try{const {data,error}=await db.rpc("student_register",{p_index:$("rId").value,p_name:$("rName").value,p_year:+$("rYear").value,p_programme:$("rProg").value,p_intake:$("rInt").value,p_contact:$("rPhone").value,p_password:$("rPw").value,p_hp:$("rHp").value,p_elapsed_ms:Math.min(Date.now()-regOpened,2000000)});if(error)throw error;
-  if(data.status!=="ok"){say(m,data.message||"Could not create the account.","bad");return}$("rPw").value="";$("rPw2").value="";loginOk(data)}catch(err){say(m,"Something went wrong. Please try again.","bad")}finally{btn.disabled=false}});
-$("logoutBtn").onclick=async()=>{const t=SES&&SES.token;SES=null;tokSet("");$("pwBox").hidden=true;$("ctaLogin").textContent="Student login / Create account";courseRows=[];$("courseList").replaceChildren();$("whoAmI").textContent="";
+  if(data.status!=="ok"){say(m,data.message||"Could not create the account.","bad");return}$("rPw").value="";$("rPw2").value="";try{await db.rpc("student_set_type",{p_token:data.token,p_type:$("rType").value})}catch(e2){}loginOk(data)}catch(err){say(m,"Something went wrong. Please try again.","bad")}finally{btn.disabled=false}});
+$("logoutBtn").onclick=async()=>{const t=SES&&SES.token;SES=null;tokSet("");$("pwBox").hidden=true;$("ctaLogin").textContent="Student login / Create account";courseRows=[];$("courseList").replaceChildren();$("whoAmI").textContent="";$("stType").value="";
  if(t)await db.rpc("student_logout",{p_token:t});$("aLogin").click();ptab("report")};
 $("chgPw").onclick=()=>{$("pwBox").hidden=!$("pwBox").hidden};
+$("typeBtn").onclick=async()=>{const m=$("acctMsg"),v=$("stType").value;if(!SES)return;
+ if(!TYPES.includes(v)){say(m,"Choose Regular, Assess or Top-Up first.","bad");return}
+ const {data,error}=await db.rpc("student_set_type",{p_token:SES.token,p_type:v});
+ if(error||!data||data.status!=="ok"){say(m,(data&&data.message)||"Could not save your programme type. Please try again.","bad");return}
+ SES.extras=Object.assign({},SES.extras,{student_type:v});syncType();const p=SES.profile;
+ $("whoAmI").textContent="Reporting as "+p.full_name+" ("+p.index_number+"), "+p.year+" "+p.programme+" "+p.intake+" Intake"+typeSuffix();
+ say(m,"Programme type saved: "+v+".","ok")};
 $("pwBtn").onclick=async()=>{const m=$("acctMsg");const {data,error}=await db.rpc("student_change_password",{p_token:SES.token,p_old:$("oldPw").value,p_new:$("newPw").value});
  if(error||!data||data.status!=="ok"){say(m,(data&&data.message)||"Could not change the password.","bad");return}$("oldPw").value="";$("newPw").value="";$("pwBox").hidden=true;say(m,"Password changed.","ok")};
 async function loadMine(){const box=$("mineList");box.replaceChildren(el("div",{textContent:"Loading...",style:"color:var(--mute)"}));
@@ -683,6 +708,53 @@ async function loadTeam(){let r=await db.from("team_members").select("id,role_ti
   const p=x.photo?el("img",{src:x.photo,alt:n,className:"av"}):el("div",{className:"av",textContent:n.charAt(0).toUpperCase()});
   g.append(el("div",{className:"tm"},p,el("strong",{textContent:x.full_name||"To be announced"}),el("small",{textContent:x.role_title}),...(x.message?[el("em",{textContent:"\u201C"+x.message+"\u201D"})]:[])))});
  $("teamCard").hidden=!(data&&data.length)}
+
+// ---------- website contacts (edited by the admin, stored in the database) ----------
+const CKINDS=[["phone","Phone"],["whatsapp","WhatsApp"],["email","Email"],["address","Address / office"],["link","Website / social link"],["other","Other text"]];
+let CONTACTS=[];
+function contactHref(c){const v=String(c.value||"").trim();
+ if(c.kind==="phone"){const n=v.replace(/[^\d+]/g,"");return n?"tel:"+n:null}
+ if(c.kind==="whatsapp"){const n=waNumber(v);return n?"https://wa.me/"+n:null}
+ if(c.kind==="email")return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v)?"mailto:"+v:null;
+ if(c.kind==="link")return /^https:\/\/[^\s<>"]+$/i.test(v)?v:null;
+ return null}
+function contactNode(c,withLabel){const h=contactHref(c),ext=/^https?:/.test(h||"");
+ return h?el("a",{href:h,textContent:withLabel?c.value+" ("+c.label+")":c.value,style:"font-weight:700",...(ext?{target:"_blank",rel:"noopener noreferrer"}:{})}):el("span",{textContent:c.value,style:"font-weight:700"})}
+function renderContacts(){
+ const list=$("contactList");list.replaceChildren();
+ CONTACTS.filter(c=>String(c.value||"").trim()).forEach(c=>{
+  const kn=(CKINDS.find(k=>k[0]===c.kind)||[0,"Contact"])[1];
+  list.append(el("div",{},el("small",{textContent:c.label||kn}),el("br"),contactNode(c,false)))});
+ $("contactCard").hidden=!list.children.length;
+ const help=CONTACTS.filter(c=>c.help_contact&&String(c.value||"").trim()),fb=$("forgotBox");
+ if(help.length){const parts=[];help.forEach((c,i)=>{if(i)parts.push(" / ");parts.push(contactNode(c,!!c.label))});
+  fb.replaceChildren(el("b",{textContent:"Forgot your password?"}),el("br"),"Contact your course rep and pay ",el("b",{textContent:"10 cedis"}),", or contact ",...parts,".")}}
+async function loadContacts(){try{const r=await db.from("site_contacts").select("id,kind,label,value,help_contact,sort_order").eq("is_active",true).order("sort_order");
+ if(r.error||!r.data||!r.data.length)return;CONTACTS=r.data;renderContacts()}catch(e){}}
+function contactValid(kind,v){v=v.trim();
+ if(!v)return"Type the contact details first.";
+ if(kind==="phone"&&!/^\+?[0-9 ()-]{7,20}$/.test(v))return"Enter a valid phone number, e.g. 0241234567.";
+ if(kind==="whatsapp"&&!waNumber(v))return"Enter a valid WhatsApp number, e.g. 0241234567 or +233241234567.";
+ if(kind==="email"&&!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v))return"Enter a valid email address.";
+ if(kind==="link"&&!/^https:\/\/[^\s<>"]+$/i.test(v))return"A link must start with https://";
+ return""}
+async function contactsEditor(box){
+ const {data,error}=await db.from("site_contacts").select("*").order("sort_order");const m=el("div");
+ if(error){box.replaceChildren(el("div",{className:"amsg",textContent:"Contacts are not set up yet. Run UPDATE_3_FEATURES.sql in Supabase first."}));return}
+ const add=el("button",{className:"b g",textContent:"+ Add contact"});
+ add.onclick=async()=>{const {error}=await db.from("site_contacts").insert({kind:"phone",label:"New contact",value:"",sort_order:((data||[]).length+1)*10});if(error)return note(m,"Could not add (only the super administrator can).");website()};
+ const rows=(data||[]).map(x=>{
+  const kd=el("select",{},...CKINDS.map(k=>new Option(k[1],k[0]))),lb=el("input",{type:"text",value:x.label||"",maxLength:80,placeholder:"Label e.g. Course rep, Office, Department email"}),
+   vl=el("input",{type:"text",value:x.value||"",maxLength:200,placeholder:"Number, email, address or link"}),or=el("input",{type:"number",value:x.sort_order,style:"width:80px"}),
+   ac=el("input",{type:"checkbox",checked:x.is_active}),hp=el("input",{type:"checkbox",checked:!!x.help_contact}),rm=el("div"),
+   sv=el("button",{className:"b",textContent:"Save"}),dl=el("button",{className:"b g",textContent:"Delete"});
+  kd.value=x.kind;
+  sv.onclick=async()=>{const bad=contactValid(kd.value,vl.value);if(bad)return note(rm,bad);
+   const {error}=await db.from("site_contacts").update({kind:kd.value,label:lb.value.trim(),value:vl.value.trim(),sort_order:+or.value||100,is_active:ac.checked,help_contact:hp.checked}).eq("id",x.id);
+   note(rm,error?"Could not save (only the super administrator can).":"Saved. It is now live on the website.",!error);if(!error)loadContacts()};
+  dl.onclick=async()=>{if(!confirm("Delete this contact?"))return;const {error}=await db.from("site_contacts").delete().eq("id",x.id);if(error)return note(m,"Only the super administrator can delete.");await loadContacts();website()};
+  return el("div",{className:"card"},el("div",{className:"arow"},kd,lb),el("div",{className:"arow"},vl),el("div",{className:"arow"},el("label",{},ac," Show on site"),el("label",{},hp," Use for \"Forgot password\" help")," Order ",or),el("div",{className:"arow"},sv,dl),rm)});
+ box.replaceChildren(el("div",{className:"card"},el("div",{textContent:"Add, edit or hide the contacts shown on the website (the \"Contact us\" card and the password-help message on the login page). Changes go live straight away; no code editing is needed.",style:"color:var(--mute);margin-bottom:8px"}),add,m),...rows)}
 async function website(){const v=$("v-site");const {data:s}=await db.from("site_settings").select("key,value");
  const g=k=>{const r=(s||[]).find(x=>x.key===k);return r?r.value:""};
  const t=el("input",{type:"text",value:g("welcome_title"),maxLength:200,style:"width:100%"}),m=el("textarea",{value:g("welcome_message"),maxLength:600,style:"width:100%"}),ins=el("textarea",{value:g("reporting_instructions"),maxLength:600,style:"width:100%"}),msg=el("div");
@@ -690,8 +762,8 @@ async function website(){const v=$("v-site");const {data:s}=await db.from("site_
  sv.onclick=async()=>{const r=(k,val)=>({key:k,value:val,is_public:true,updated_by:me.id});
   const {error}=await db.from("site_settings").upsert([r("welcome_title",t.value),r("welcome_message",m.value),r("reporting_instructions",ins.value)]);
   note(msg,error?"Only the super administrator can change this.":"Saved. Refresh the public page to see it.",!error)};
- const tm=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),mfaCard(),bgCard(s),qrCard(),el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
- await teamEditor(tm)}
+ const tm=el("div"),cb=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),mfaCard(),bgCard(s),qrCard(),el("h3",{textContent:"Website contacts"}),cb,el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
+ await contactsEditor(cb);await teamEditor(tm)}
 async function teamEditor(box){const {data}=await db.from("team_members").select("*").order("sort_order").order("role_title");const m=el("div");
  const add=el("button",{className:"b g",textContent:"+ Add team member"});
  add.onclick=async()=>{const {error}=await db.from("team_members").insert({role_title:"New role",sort_order:((data||[]).length+1)*10});if(error)return note(m,"Could not add (check your role).");website()};
@@ -781,15 +853,27 @@ function backupCard(){const m=el("div"),b=el("button",{className:"b",textContent
 async function studentAccounts(){const v=$("v-students"),q=el("input",{type:"text",placeholder:"Search student ID or name",style:"width:100%"}),m=el("div"),box=el("div");
  const act=async(fn,args,okMsg)=>{const {data,error}=await db.rpc(fn,args);const bad=error||(data&&data.status==="error");note(m,bad?"Could not do that: "+((data&&data.message)||(error&&error.message)):okMsg,!bad);load()};
  const load=async()=>{const {data,error}=await db.rpc("admin_list_student_accounts",{p_search:q.value.trim()});if(error)return note(m,"Could not load accounts (run STUDENT_ACCOUNTS.sql).");
-  const t=el("table",{},el("tr",{},...["Student ID","Name","Batch","Phone","Reports","Last login","Status","Actions"].map(h=>el("th",{textContent:h}))));
-  (data||[]).forEach(a=>{const rs=el("button",{className:"b g",textContent:"Reset password"}),tg=el("button",{className:"b g",textContent:a.is_active?"Switch off":"Switch on"}),dl=el("button",{className:"b g",textContent:"Delete",style:"color:var(--bad);border-color:var(--bad)"});
+  const X={};let exOk=true;try{const ex=await db.rpc("admin_list_student_extras");if(ex.error||!Array.isArray(ex.data))exOk=false;else ex.data.forEach(r=>{X[String(r.index_number).toUpperCase()]=r})}catch(e){exOk=false}
+  if(!exOk)note(m,"Editing the intake year and programme type needs UPDATE_3_FEATURES.sql to be run in Supabase first.");
+  const t=el("table",{},el("tr",{},...["Student ID","Name","Batch","Intake year","Programme type","Phone","Reports","Last login","Status","Actions"].map(h=>el("th",{textContent:h}))));
+  (data||[]).forEach(a=>{const ex=X[String(a.index_number).toUpperCase()]||{},curY=ex.intake_year||parseInt(a.batch,10)||0,curT=ex.student_type||"";
+   const ys=el("select",{},...[...Array(18)].map((_,i)=>new Option(2023+i,2023+i))),ts=el("select",{},new Option("Not chosen",""),...TYPES.map(x=>new Option(x,x)));
+   if(curY&&(curY<2023||curY>2040))ys.prepend(new Option(curY,curY));ys.value=String(curY);ts.value=curT;if(!exOk){ys.disabled=true;ts.disabled=true}
+   const sv=el("button",{className:"b",textContent:"Save changes",disabled:!exOk}),rs=el("button",{className:"b g",textContent:"Reset password"}),tg=el("button",{className:"b g",textContent:a.is_active?"Switch off":"Switch on"}),dl=el("button",{className:"b g",textContent:"Delete",style:"color:var(--bad);border-color:var(--bad)"});
+   sv.onclick=async()=>{const y=+ys.value,tp=ts.value;let bad="",did=false;
+    if(y!==curY){if(!confirm("Change the intake year of "+a.index_number+" from "+curY+" to "+y+"?"))return;
+     const r=await db.rpc("admin_set_student_year",{p_index:a.index_number,p_year:y});if(r.error||(r.data&&r.data.status==="error"))bad=(r.data&&r.data.message)||(r.error&&r.error.message)||"error";else did=true}
+    if(!bad&&tp!==curT&&tp){const r=await db.rpc("admin_set_student_type",{p_index:a.index_number,p_type:tp});if(r.error||(r.data&&r.data.status==="error"))bad=(r.data&&r.data.message)||(r.error&&r.error.message)||"error";else did=true}
+    if(!bad&&!did)return note(m,"Nothing to save: no change was made.");
+    note(m,bad?"Could not save: "+bad:"Saved for "+a.index_number+".",!bad);load()};
    rs.onclick=()=>{const pw=prompt("Type a NEW temporary password for "+a.index_number+" (8+ characters with letters and numbers). Tell the student; they can change it after logging in.");if(pw)act("admin_reset_student_password",{p_account_id:a.id,p_new:pw},"Password reset for "+a.index_number+".")};
    tg.onclick=()=>act("admin_set_student_active",{p_account_id:a.id,p_active:!a.is_active},"Saved.");
    dl.onclick=()=>{if(confirm("Delete the account of "+a.index_number+"? Their reports are kept. They (or the real owner of the ID) can register again."))act("admin_delete_student_account",{p_account_id:a.id},"Account deleted.")};
-   t.append(el("tr",{},...[a.index_number,a.full_name,a.batch,a.contact,a.reports,a.last_login_at?new Date(a.last_login_at).toLocaleString():"never",a.locked?"Locked":(a.is_active?"Active":"Off")].map(x=>el("td",{textContent:x})),el("td",{},rs,tg,dl)))});
+   const batch=ex.intake_year&&a.batch?String(a.batch).replace(/^\d{4}/,ex.intake_year):a.batch;
+   t.append(el("tr",{},...[a.index_number,a.full_name,batch].map(x=>el("td",{textContent:x})),el("td",{},ys),el("td",{},ts),...[a.contact,a.reports,a.last_login_at?new Date(a.last_login_at).toLocaleString():"never",a.locked?"Locked":(a.is_active?"Active":"Off")].map(x=>el("td",{textContent:x})),el("td",{},sv," ",rs," ",tg," ",dl)))});
   box.replaceChildren((data&&data.length)?el("div",{className:"wrap"},t):el("div",{textContent:"No student accounts yet.",style:"color:var(--mute)"}))};
  q.oninput=()=>{clearTimeout(q._t);q._t=setTimeout(load,300)};
- v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Student accounts"}),el("div",{textContent:"Students create their own account with their student ID. If someone registered an ID that is not theirs, Delete that account so the real student can register. Reset gives a temporary password. Students who forget their password are told to contact their course rep and pay 10 cedis, or call 0209684674: use Reset password for them after that.",style:"color:var(--mute);margin-bottom:8px"}),q,m),el("div",{className:"card"},box));load()}
+ v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Student accounts"}),el("div",{textContent:"Students create their own account with their student ID. If someone registered an ID that is not theirs, Delete that account so the real student can register. Reset gives a temporary password. Students who forget their password are told to contact their course rep and pay 10 cedis, or use the help contact shown on the website: use Reset password for them after that. You can also change a student\u2019s intake year and programme type (Regular, Assess or Top-Up) in the table below.",style:"color:var(--mute);margin-bottom:8px"}),q,m),el("div",{className:"card"},box));load()}
 async function auditLog(){const v=$("v-audit");
  const {data,error}=await db.from("audit_logs").select("id,actor_id,action,table_name,record_id,created_at").order("id",{ascending:false}).limit(200);
  if(error)return v.replaceChildren(el("div",{className:"amsg",textContent:"Only the super administrator can view the audit log."}));
@@ -884,7 +968,7 @@ $("staffLink").onclick=async()=>{$("pub").hidden=true;$("adm").hidden=false;awai
  if(!$("login").hidden&&!$("lm").textContent){const r=await db.from("site_settings").select("key").eq("is_public",true).limit(1);
   note($("lm"),r.error?"Cannot reach the database ("+SUPABASE_URL.replace("https://","")+"): "+r.error.message+". Check that the Supabase project is not paused, and open "+SUPABASE_URL+"/rest/v1/ in a new tab as a test.":(DEMO?"Demo mode: type any email and any password to enter.":"Database connection OK. Enter your admin email and password."),!r.error)}};
 $("back").onclick=()=>{$("adm").hidden=true;$("pub").hidden=false};
-init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE"))loadTeam()});
+init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE")){loadTeam();loadContacts()}});
 if(location.hash==="#admin")$("staffLink").click();
 // scroll reveal + background parallax (whole page)
 (function(){const sel="#home .card,#portal .card,#portal fieldset,.tm,.clist .ci";let io=null;
