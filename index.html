@@ -308,6 +308,7 @@ body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
  <div class="card noprint"><div class="f">
   <input id="q" placeholder="Name or index number">
   <select id="fy"></select><select id="fp"><option value="">All programmes</option><option>Nursing</option><option>Midwifery</option></select><select id="fi"><option value="">All intakes</option><option>January</option><option>September</option></select>
+  <select id="ftype"><option value="">All programme types</option><option>Regular</option><option>Assess</option><option>Top-Up</option><option value="Not stated">Not stated</option></select>
   <select id="fc"></select><select id="fl"><option value="">All levels</option><option>100</option><option>200</option><option>300</option><option>400</option></select>
   <select id="fs"><option value="">All semesters</option><option value="1">First Semester</option><option value="2">Second Semester</option></select>
   <select id="fk"></select><select id="ft"></select></div>
@@ -442,65 +443,81 @@ async function overview(){const v=$("v-overview");let {data,error}=await db.rpc(
  const list=(t,o)=>el("div",{className:"card"},el("b",{textContent:t}),...Object.entries(o).map(([k,n])=>el("div",{textContent:k+": "+n})));
  v.replaceChildren(el("div",{className:"grid"},st("Total cases",data.total_cases),st("Unique students",data.unique_students),st("Active courses",data.active_courses),st("Batches represented",data.batches_represented)),
   el("div",{className:"grid"},list("Cases by level",data.by_level),list("Cases by semester (1 or 2)",data.by_semester),list("Cases by status",data.by_status),
-  list("Most reported courses",Object.fromEntries(data.top_courses.map(x=>[x.course,x.cases])))))}
+  list("Most reported courses",Object.fromEntries(data.top_courses.map(x=>[x.course,x.cases])))));
+ const tc=el("div",{className:"grid"});v.append(tc);
+ typeStats().then(r=>{if(r)tc.replaceChildren(list("Cases by programme type",r.cases),list("Student accounts by programme type",r.accts))})}
+async function typeStats(){try{const [c,X,a]=await Promise.all([db.from("v_cases_full").select("index_number").limit(5000),extrasMap(),db.rpc("admin_list_student_accounts",{p_search:""})]);
+ const tp=i=>(X[String(i).toUpperCase()]||{}).student_type||"Not stated",z=()=>Object.fromEntries(TRANK.map(t=>[t,0])),cs=z(),ac=z();
+ (c.data||[]).forEach(r=>{const k=tp(r.index_number);cs[k]=(cs[k]||0)+1});(a.data||[]).forEach(r=>{const k=tp(r.index_number);ac[k]=(ac[k]||0)+1});
+ return{cases:cs,accts:ac}}catch(e){return null}}
 
 function filt(){let q=db.from("v_cases_full").select("*").order("admission_year").order("intake").order("course_code",{nullsFirst:false}).order("course_name").order("affected_level").order("full_name").limit(2000);
- const s=$("q").value.replace(/[,()%*]/g,"").trim();if(s)q=q.or("full_name.ilike.%"+s+"%,index_number.ilike.%"+s+"%");
- if($("fy").value)q=q.eq("admission_year",$("fy").value);if($("fp").value)q=q.eq("programme",$("fp").value);if($("fi").value)q=q.eq("intake",$("fi").value);
+ const s=$("q").value.replace(/[,()%*]/g,"").trim();if(s&&!typeWord(s))q=q.or("full_name.ilike.%"+s+"%,index_number.ilike.%"+s+"%");
+ if($("fp").value)q=q.eq("programme",$("fp").value);if($("fi").value)q=q.eq("intake",$("fi").value);
  if($("fc").value)q=q.eq("course_id",$("fc").value);if($("fl").value)q=q.eq("affected_level",$("fl").value);
  if($("fs").value)q=q.eq("affected_semester",$("fs").value);if($("fk").value)q=q.eq("category_id",$("fk").value);
  if($("ft").value)q=q.eq("status_id",$("ft").value);return q}
-async function loadCases(){const {data,error}=await filt();if(error)return note($("cm"),"Could not load cases.");rows=data;
+const TRANK=["Regular","Assess","Top-Up","Not stated"];
+const typeWord=s=>{const k=String(s||"").toLowerCase().replace(/[-\s]/g,"");if(!k)return"";if(k==="notstated"||k==="notchosen")return"Not stated";return TYPES.find(x=>x.toLowerCase().replace("-","")===k)||""};
+async function extrasMap(){const X={};try{const r=await db.rpc("admin_list_student_extras");if(Array.isArray(r.data))r.data.forEach(e=>{X[String(e.index_number).toUpperCase()]=e})}catch(e){}return X}
+const typeCounts=l=>TRANK.map(t=>[t,l.filter(r=>r.student_type===t).length]).filter(x=>x[1]).map(x=>x[0]+" "+x[1]).join(", ");
+async function loadCases(){const {data,error}=await filt();if(error)return note($("cm"),"Could not load cases.");
+ const X=await extrasMap();
+ data.forEach(r=>{const e=X[String(r.index_number).toUpperCase()]||{};r.student_type=e.student_type||"Not stated";if(e.intake_year){r.admission_year=e.intake_year;if(r.batch_label)r.batch_label=String(r.batch_label).replace(/^\d{4}/,e.intake_year)}});
+ data.sort((a,b)=>a.admission_year-b.admission_year||String(a.intake).localeCompare(String(b.intake)));
+ const TF=$("ftype").value||typeWord($("q").value);
+ rows=data.filter(r=>(!$("fy").value||String(r.admission_year)===$("fy").value)&&(!TF||r.student_type===TF));
  $("cnt").textContent=rows.length+" case(s), "+new Set(rows.map(r=>r.index_number)).size+" unique student(s)";
  drawRows(rows)}
 function drawRows(list){const wrap=$("tbWrap");wrap.replaceChildren();const by={};list.forEach(r=>{(by[r.batch_label]=by[r.batch_label]||[]).push(r)});
  Object.keys(by).forEach(bl=>{const rs=by[bl];
   const ck=r=>(r.course_code?r.course_code+" - ":"")+r.course_name;
-  const t=el("table",{},el("tr",{},...["No.","Student","Index","Level","Contact","Issue","Status","Reference"].map(h=>el("th",{textContent:h}))));let g="",n=0;
-  rs.forEach(r=>{const key=ck(r);if(key!==g){g=key;n=0;t.append(el("tr",{className:"gh"},el("td",{colSpan:8,textContent:"Course: "+key+"  ("+rs.filter(x=>ck(x)===key).length+" student(s))"})))}
-   n++;const tr=el("tr",{className:"r"},...[n,r.full_name,r.index_number,"L"+r.affected_level+(r.affected_semester?" S"+r.affected_semester:""),r.contact||"",r.category_name,r.status_name,r.reference_number].map(x=>el("td",{textContent:x})));tr.onclick=()=>detail(r);t.append(tr)});
-  wrap.append(el("section",{className:"batch"},el("h3",{textContent:bl+"  ("+rs.length+" case(s), "+new Set(rs.map(x=>x.index_number)).size+" student(s))"}),el("div",{className:"wrap"},t)))})}
+  const ord=[...new Set(rs.map(ck))],TR=r=>{const i=TRANK.indexOf(r.student_type);return i<0?9:i};rs.sort((a,b)=>ord.indexOf(ck(a))-ord.indexOf(ck(b))||TR(a)-TR(b));
+  const t=el("table",{},el("tr",{},...["No.","Student","Index","Type","Level","Contact","Issue","Status","Reference"].map(h=>el("th",{textContent:h}))));let g="",n=0;
+  rs.forEach(r=>{const key=ck(r);if(key!==g){g=key;n=0;t.append(el("tr",{className:"gh"},el("td",{colSpan:9,textContent:"Course: "+key+"  ("+rs.filter(x=>ck(x)===key).length+" student(s): "+typeCounts(rs.filter(x=>ck(x)===key))+")"})))}
+   n++;const tr=el("tr",{className:"r"},...[n,r.full_name,r.index_number,r.student_type||"Not stated","L"+r.affected_level+(r.affected_semester?" S"+r.affected_semester:""),r.contact||"",r.category_name,r.status_name,r.reference_number].map(x=>el("td",{textContent:x})));tr.onclick=()=>detail(r);t.append(tr)});
+  wrap.append(el("section",{className:"batch"},el("h3",{textContent:bl+"  ("+rs.length+" case(s), "+new Set(rs.map(x=>x.index_number)).size+" student(s)) | "+typeCounts(rs)}),el("div",{className:"wrap"},t)))})}
 $("apply").onclick=loadCases;
 function pickBatch(title,go){if(!rows.length)return note($("cm"),"No cases to export. Press Search first.");
  const mk=(first,opts)=>{const x=el("select",{style:"width:100%;margin:4px 0 10px"});x.append(new Option(first,""));opts.forEach(o=>x.append(new Option(o[1],o[0])));return x};
  const yrs=[...new Set(rows.map(r=>r.admission_year))].sort();
- const sy=mk("All years",yrs.map(y=>[String(y),"Year "+y])),sp=mk("Both programmes (Nursing and Midwifery)",[["Nursing","Nursing"],["Midwifery","Midwifery"]]),si=mk("Both intakes (January and September)",[["January","January intake"],["September","September intake"]]),sc=mk("All courses (shown course by course)",[]);
+ const sy=mk("All years",yrs.map(y=>[String(y),"Year "+y])),sp=mk("Both programmes (Nursing and Midwifery)",[["Nursing","Nursing"],["Midwifery","Midwifery"]]),si=mk("Both intakes (January and September)",[["January","January intake"],["September","September intake"]]),sc=mk("All courses (shown course by course)",[]),st=mk("All programme types",[["Regular","Regular"],["Assess","Assess"],["Top-Up","Top-Up"],["Not stated","Not stated"]]);
  const info=el("div",{style:"margin:6px 0 10px;color:var(--mute)"});
- const sub=()=>rows.filter(r=>(!sy.value||String(r.admission_year)===sy.value)&&(!sp.value||r.programme===sp.value)&&(!si.value||r.intake===si.value));
+ const sub=()=>rows.filter(r=>(!sy.value||String(r.admission_year)===sy.value)&&(!sp.value||r.programme===sp.value)&&(!si.value||r.intake===si.value)&&(!st.value||r.student_type===st.value));
  const fin=()=>sub().filter(r=>!sc.value||r.course_name===sc.value);
  const cnt=()=>{info.textContent=fin().length+" case(s) will be included."};
  const fillC=()=>{const cur=sc.value,cs=[...new Set(sub().map(r=>r.course_name))].sort();sc.replaceChildren(new Option("All courses (shown course by course)",""));cs.forEach(c=>sc.append(new Option(c,c)));if(cs.includes(cur))sc.value=cur;cnt()};
- sy.onchange=fillC;sp.onchange=fillC;si.onchange=fillC;sc.onchange=cnt;fillC();
+ sy.onchange=fillC;sp.onchange=fillC;si.onchange=fillC;st.onchange=fillC;sc.onchange=cnt;fillC();
  const ok=el("button",{className:"b",textContent:title}),no=el("button",{className:"b g",textContent:"Cancel"});
  const ov=el("div",{className:"noprint",id:"batchDlg",style:"position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50"},
-  el("div",{className:"card",style:"width:min(92vw,400px)"},el("h3",{textContent:"What do you want?"}),"Year",sy,"Programme",sp,"Intake",si,"Course",sc,info,el("div",{className:"arow"},ok,no)));
+  el("div",{className:"card",style:"width:min(92vw,400px)"},el("h3",{textContent:"What do you want?"}),"Year",sy,"Programme",sp,"Intake",si,"Programme type",st,"Course",sc,info,el("div",{className:"arow"},ok,no)));
  no.onclick=()=>ov.remove();
- ok.onclick=()=>{const f=fin();if(!f.length)return;const lab=[sy.value||"All years",sp.value||"Both programmes",si.value||"Both intakes",sc.value||"All courses"].join(" ");ov.remove();go(f,lab)};
+ ok.onclick=()=>{const f=fin();if(!f.length)return;const lab=[sy.value||"All years",sp.value||"Both programmes",si.value||"Both intakes",st.value||"All types",sc.value||"All courses"].join(" ");ov.remove();go(f,lab)};
  document.body.append(ov)}
-$("prt").onclick=()=>pickBatch("Print / Save as PDF",(sub,lab)=>{const f=[["fy","Year"],["fp","Programme"],["fi","Intake"],["fc","Course"],["fl","Level"],["fs","Semester"],["fk","Issue"],["ft","Status"]].filter(([i])=>$(i).value).map(([i,l])=>l+": "+$(i).selectedOptions[0].text).join(", ")||"None";
+$("prt").onclick=()=>pickBatch("Print / Save as PDF",(sub,lab)=>{const f=[["fy","Year"],["fp","Programme"],["fi","Intake"],["ftype","Type"],["fc","Course"],["fl","Level"],["fs","Semester"],["fk","Issue"],["ft","Status"]].filter(([i])=>$(i).value).map(([i,l])=>l+": "+$(i).selectedOptions[0].text).join(", ")||"None";
  $("ph").replaceChildren(el("h2",{textContent:"EXAMINATION ISSUES REPORT"}),el("div",{textContent:"Batch: "+lab+" | Other filters: "+f+" | Generated: "+new Date().toLocaleString()+" | "+sub.length+" case(s)"}));
  drawRows(sub);const back=()=>{drawRows(rows);$("ph").replaceChildren();window.removeEventListener("afterprint",back)};window.addEventListener("afterprint",back);window.print()});
 $("xls").onclick=()=>pickBatch("Download Excel",runXls);
 async function runXls(rows,lab){if(!rows.length)return note($("cm"),"No cases to export.");
  const {error}=await db.rpc("log_export",{p_description:"Excel: "+rows.length+" rows"});if(error)return note($("cm"),"Your role may not export records.");
  if(typeof XLSX==="undefined")return note($("cm"),"The Excel tool did not load. Use Export CSV instead.");
- const H=["No.","Student name","Index number","Level","Semester","Contact","Issue","Status","Reference","Submitted"];
+ const H=["No.","Student name","Index number","Programme type","Level","Semester","Contact","Issue","Status","Reference","Submitted"];
  const ck=r=>(r.course_code?r.course_code+" - ":"")+r.course_name;
  const wb=XLSX.utils.book_new(),by={};rows.forEach(r=>{(by[r.batch_label]=by[r.batch_label]||[]).push(r)});
  Object.keys(by).forEach(k=>{const aoa=[["EXAMINATION ISSUES REPORT - "+k],["Filter: "+lab+"   |   Generated: "+new Date().toLocaleString()],[]],cs={};
   by[k].forEach(r=>{(cs[ck(r)]=cs[ck(r)]||[]).push(r)});
-  Object.keys(cs).sort().forEach(c=>{const L=cs[c].slice().sort((a,b)=>a.affected_level-b.affected_level||String(a.full_name).localeCompare(String(b.full_name)));
-   aoa.push(["COURSE: "+c+"   ("+L.length+" student(s))"]);aoa.push(H);
-   L.forEach((r,i)=>aoa.push([i+1,r.full_name,r.index_number,r.affected_level,r.affected_semester||"",r.contact||"",r.category_name,r.status_name,r.reference_number,r.created_at]));aoa.push([])});
-  const ws=XLSX.utils.aoa_to_sheet(aoa);ws["!cols"]=[6,26,16,8,9,16,32,22,16,22].map(w=>({wch:w}));
+  Object.keys(cs).sort().forEach(c=>{const L=cs[c].slice().sort((a,b)=>TRANK.indexOf(a.student_type)-TRANK.indexOf(b.student_type)||a.affected_level-b.affected_level||String(a.full_name).localeCompare(String(b.full_name)));
+   aoa.push(["COURSE: "+c+"   ("+L.length+" student(s): "+typeCounts(L)+")"]);aoa.push(H);
+   L.forEach((r,i)=>aoa.push([i+1,r.full_name,r.index_number,r.student_type||"Not stated",r.affected_level,r.affected_semester||"",r.contact||"",r.category_name,r.status_name,r.reference_number,r.created_at]));aoa.push([])});
+  const ws=XLSX.utils.aoa_to_sheet(aoa);ws["!cols"]=[6,26,16,15,8,9,16,32,22,16,22].map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb,ws,(by[k][0].admission_year+" "+by[k][0].programme+" "+by[k][0].intake).slice(0,31))});
  XLSX.writeFile(wb,"exam-issues-"+lab.replace(/[^A-Za-z0-9]+/g,"-")+"-"+new Date().toISOString().slice(0,10)+".xlsx");note($("cm"),"Excel file downloaded: "+lab+".",true)}
 $("csv").onclick=()=>pickBatch("Download CSV",runCsv);
 async function runCsv(rows,lab){const {error}=await db.rpc("log_export",{p_description:"CSV: "+rows.length+" rows"});
  if(error)return note($("cm"),"Your role may not export records.");
  const safe=v=>{v=String(v??"");if(/^[=+\-@\t\r]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
- const H=["Reference","Name","Index","Admission year","Intake","Course","Current level","Affected level","Semester","Issue","Status","Contact","Submitted"];
- const L=[H.map(safe).join(",")].concat(rows.map(r=>[r.reference_number,r.full_name,r.index_number,r.admission_year,r.intake,r.course_name,r.current_level,r.affected_level,r.affected_semester,r.category_name,r.status_name,r.contact||"",r.created_at].map(safe).join(",")));
+ const H=["Reference","Name","Index","Programme type","Admission year","Intake","Course","Current level","Affected level","Semester","Issue","Status","Contact","Submitted"];
+ const L=[H.map(safe).join(",")].concat(rows.map(r=>[r.reference_number,r.full_name,r.index_number,r.student_type||"Not stated",r.admission_year,r.intake,r.course_name,r.current_level,r.affected_level,r.affected_semester,r.category_name,r.status_name,r.contact||"",r.created_at].map(safe).join(",")));
  const a=el("a",{href:URL.createObjectURL(new Blob([L.join("\n")],{type:"text/csv"})),download:"exam-issues-"+lab.replace(/[^A-Za-z0-9]+/g,"-")+"-"+new Date().toISOString().slice(0,10)+".csv"});a.click()}
 
 async function detail(r){const d=$("detail");d.hidden=false;d.scrollIntoView();
@@ -524,7 +541,7 @@ async function detail(r){const d=$("detail");d.hidden=false;d.scrollIntoView();
   if(data)dl.append(el("div",{},el("a",{href:data.signedUrl,target:"_blank",rel:"noopener",textContent:x.original_name})))});
  d.replaceChildren(el("h3",{textContent:r.reference_number+" | "+r.full_name+" ("+r.index_number+")"}),
   el("div",{textContent:r.batch_label+" | "+r.course_name+" | Level "+r.affected_level+", Semester "+r.affected_semester+(r.current_level?" (current level "+r.current_level+")":"")}),
-  el("div",{textContent:"Issue: "+r.category_name+(r.other_explanation?" - "+r.other_explanation:"")}),el("div",{textContent:"Contact: "+(r.contact||"not given"),style:"font-weight:600;margin:6px 0"}),...(r.description?[el("p",{textContent:r.description})]:[]),
+  el("div",{textContent:"Programme type: "+(r.student_type||"Not stated"),style:"font-weight:600"}),el("div",{textContent:"Issue: "+r.category_name+(r.other_explanation?" - "+r.other_explanation:"")}),el("div",{textContent:"Contact: "+(r.contact||"not given"),style:"font-weight:600;margin:6px 0"}),...(r.description?[el("p",{textContent:r.description})]:[]),
   el("b",{textContent:"Documents"}),dl,el("div",{className:"arow"},sel,ub,...(me.role==="viewer"?[]:[del])),m,
   el("b",{textContent:"Status history"}),...(h.data||[]).map(x=>el("div",{textContent:new Date(x.changed_at).toLocaleString()+": "+nm(lk.sts,x.new_status_id)})),
   el("b",{textContent:"Internal notes"}),...(n.data||[]).map(x=>el("div",{textContent:new Date(x.created_at).toLocaleString()+": "+x.note})),ta,nb)}
@@ -600,14 +617,21 @@ const tokGet=()=>{try{return localStorage.getItem(TKEY)||""}catch(e){return ""}}
 const tokSet=t=>{try{t?localStorage.setItem(TKEY,t):localStorage.removeItem(TKEY)}catch(e){}};
 const TYPES=["Regular","Assess","Top-Up"];
 const typeSuffix=()=>{const t=SES&&SES.extras&&SES.extras.student_type;return t?" ("+t+" student)":""};
-function syncType(){const t=SES&&SES.extras&&SES.extras.student_type;$("stType").value=t||"";$("typeNote").textContent=t?"":"Please choose your programme type (Regular, Assess or Top-Up) and press Save."}
+const PKEY="xpt";
+const pendGet=()=>{try{const o=JSON.parse(localStorage.getItem(PKEY));return o&&o.i&&TYPES.includes(o.t)?o:null}catch(e){return null}};
+const pendSet=(i,t)=>{try{t?localStorage.setItem(PKEY,JSON.stringify({i:String(i).toUpperCase(),t})):localStorage.removeItem(PKEY)}catch(e){}};
+const pendMine=()=>{const o=pendGet();return o&&SES&&SES.profile&&String(SES.profile.index_number).toUpperCase()===o.i?o.t:""};
+function refreshWho(){if(!SES)return;const p=SES.profile;$("whoAmI").textContent="Reporting as "+p.full_name+" ("+p.index_number+"), "+p.year+" "+p.programme+" "+p.intake+" Intake"+typeSuffix()}
+function syncType(){const t=SES&&SES.extras&&SES.extras.student_type,pd=t?"":pendMine();$("stType").value=t||pd||"";$("typeNote").textContent=t?"":(pd?"Your programme type ("+pd+") is not saved yet. Press Save.":"Please choose your programme type (Regular, Assess or Top-Up) and press Save.")}
 async function getExtras(t){try{const {data}=await db.rpc("student_get_extras",{p_token:t});return data&&data.status==="ok"?data:{}}catch(e){return{}}}
+async function saveType(token,v){try{const {data,error}=await db.rpc("student_set_type",{p_token:token,p_type:v});if(error)return{ok:false,msg:error.message};if(!data||data.status!=="ok")return{ok:false,msg:(data&&data.message)||"not saved"};return{ok:true}}catch(e){return{ok:false,msg:String(e&&e.message||e)}}}
+async function flushPending(){try{const v=pendMine();if(!v)return;if(SES.extras&&SES.extras.student_type){pendSet("","");return}const r=await saveType(SES.token,v);if(r.ok){SES.extras=Object.assign({},SES.extras,{student_type:v});pendSet("","");syncType();refreshWho()}}catch(e){}}
 const withExtras=(p,x)=>x&&x.intake_year?Object.assign({},p,{year:+x.intake_year}):p;
 function applyProfile(p){$("year").value=String(p.year);$("programme").value=p.programme;$("intake").value=p.intake;
  $("whoAmI").textContent="Reporting as "+p.full_name+" ("+p.index_number+"), "+p.year+" "+p.programme+" "+p.intake+" Intake"+typeSuffix();
  $("acctWho").textContent=p.full_name+" ("+p.index_number+")";$("ctaLogin").textContent="My account";syncType();chain()}
 async function restoreSession(){if(SES)return;const t=tokGet();if(!t)return;const {data}=await db.rpc("student_me",{p_token:t});
- if(data&&data.status==="ok"){const x=await getExtras(t),pr=withExtras(data.profile,x);SES={token:t,profile:pr,extras:x};applyProfile(pr)}else tokSet("")}
+ if(data&&data.status==="ok"){const x=await getExtras(t),pr=withExtras(data.profile,x);SES={token:t,profile:pr,extras:x};applyProfile(pr);flushPending()}else tokSet("")}
 function views(w){["reportView","mineView","trackView"].forEach(id=>$(id).hidden=true);$("authBox").hidden=true;$(w+"View").hidden=false;
  ["Report","Mine","Track"].forEach(n=>$("tab"+n).classList.toggle("on",n.toLowerCase()===w));$("acctBar").hidden=!SES}
 function ptab(w){if(w===true)w="report";if(w===false)w="track";
@@ -617,26 +641,36 @@ function ptab(w){if(w===true)w="report";if(w===false)w="track";
 $("tabReport").onclick=()=>ptab("report");$("tabMine").onclick=()=>ptab("mine");$("tabTrack").onclick=()=>ptab("track");
 $("aLogin").onclick=()=>{$("loginF").hidden=false;$("regF").hidden=true;$("aLogin").classList.add("on");$("aReg").classList.remove("on")};
 $("aReg").onclick=()=>{$("loginF").hidden=true;$("regF").hidden=false;$("aReg").classList.add("on");$("aLogin").classList.remove("on");regOpened=Date.now()};
-async function loginOk(d){$("aLogin").click();tokSet(d.token);const x=await getExtras(d.token),pr=withExtras(d.profile,x);SES={token:d.token,profile:pr,extras:x};applyProfile(pr);formOpened=Date.now();$("doneCard").hidden=true;$("formCard").hidden=false;ptab(afterLogin||"report")}
+async function loginOk(d){$("aLogin").click();tokSet(d.token);let pf=d.profile;
+ if(!pf){const r=await db.rpc("student_me",{p_token:d.token});pf=r.data&&r.data.profile}
+ if(!pf)throw new Error("Your account was created, but your profile could not be loaded. Please log in with your student ID and password.");
+ const x=await getExtras(d.token),pr=withExtras(pf,x);SES={token:d.token,profile:pr,extras:x};applyProfile(pr);await flushPending();formOpened=Date.now();$("doneCard").hidden=true;$("formCard").hidden=false;ptab(afterLogin||"report")}
 $("loginF").addEventListener("submit",async e=>{e.preventDefault();const m=$("lMsg"),btn=$("lBtn");say(m,"");
  if(!$("lId").value.trim()||!$("lPw").value){say(m,"Enter your student ID and password.","bad");return}
- btn.disabled=true;try{const {data,error}=await db.rpc("student_login",{p_index:$("lId").value,p_password:$("lPw").value,p_hp:$("lHp").value});if(error)throw error;
-  if(data.status!=="ok"){say(m,data.message||"Could not log in.","bad");return}$("lPw").value="";loginOk(data)}catch(err){say(m,"Something went wrong. Please try again.","bad")}finally{btn.disabled=false}});
+ btn.disabled=true;try{const {data,error}=await db.rpc("student_login",{p_index:$("lId").value.trim(),p_password:$("lPw").value,p_hp:$("lHp").value});if(error)throw error;
+  if(!data||data.status!=="ok"){say(m,(data&&data.message)||"Could not log in.","bad");return}$("lPw").value="";await loginOk(data)}catch(err){say(m,"Could not log in: "+(err&&err.message?err.message:"network problem")+". Please try again.","bad")}finally{btn.disabled=false}});
 $("regF").addEventListener("submit",async e=>{e.preventDefault();const m=$("rMsg"),btn=$("rBtn");say(m,"");
  for(const id of ["rId","rName","rYear","rProg","rInt","rType","rPhone","rPw","rPw2"]){if(!$(id).value.trim()){say(m,"Please complete every box.","bad");$(id).focus();return}}
  if(!/^\+?[0-9 ()-]{7,20}$/.test($("rPhone").value.trim())){say(m,"Please enter a valid phone number.","bad");return}
  if($("rPw").value!==$("rPw2").value){say(m,"The two passwords are not the same.","bad");return}
  if($("rPw").value.length<8||!/[A-Za-z]/.test($("rPw").value)||!/[0-9]/.test($("rPw").value)){say(m,"Password must be 8 or more characters with letters and numbers.","bad");return}
- btn.disabled=true;try{const {data,error}=await db.rpc("student_register",{p_index:$("rId").value,p_name:$("rName").value,p_year:+$("rYear").value,p_programme:$("rProg").value,p_intake:$("rInt").value,p_contact:$("rPhone").value,p_password:$("rPw").value,p_hp:$("rHp").value,p_elapsed_ms:Math.min(Date.now()-regOpened,2000000)});if(error)throw error;
-  if(data.status!=="ok"){say(m,data.message||"Could not create the account.","bad");return}$("rPw").value="";$("rPw2").value="";try{await db.rpc("student_set_type",{p_token:data.token,p_type:$("rType").value})}catch(e2){}loginOk(data)}catch(err){say(m,"Something went wrong. Please try again.","bad")}finally{btn.disabled=false}});
+ const idv=$("rId").value.trim(),typ=$("rType").value;
+ btn.disabled=true;try{const {data,error}=await db.rpc("student_register",{p_index:idv,p_name:$("rName").value.trim().replace(/\s+/g," "),p_year:+$("rYear").value,p_programme:$("rProg").value,p_intake:$("rInt").value,p_contact:$("rPhone").value.trim(),p_password:$("rPw").value,p_hp:$("rHp").value,p_elapsed_ms:Math.min(Date.now()-regOpened,2000000)});
+  if(error){say(m,"Could not create the account: "+(error.message||"database error")+(error.code?" ("+error.code+")":"")+". If this keeps happening, tell the department.","bad");return}
+  if(!data||data.status!=="ok"||!data.token){say(m,(data&&data.message)||"Could not create the account. Please check your details and try again.","bad");return}
+  $("rPw").value="";$("rPw2").value="";pendSet(idv,typ);
+  const r=await saveType(data.token,typ);if(r.ok)pendSet("","");
+  await loginOk(data);
+  if(!r.ok)say($("acctMsg"),"Your account is ready, but your programme type could not be saved yet ("+r.msg+"). Choose it above and press Save.","warn")}
+ catch(err){say(m,"Could not finish creating the account: "+(err&&err.message?err.message:"network problem")+".","bad")}finally{btn.disabled=false}});
 $("logoutBtn").onclick=async()=>{const t=SES&&SES.token;SES=null;tokSet("");$("pwBox").hidden=true;$("ctaLogin").textContent="Student login / Create account";courseRows=[];$("courseList").replaceChildren();$("whoAmI").textContent="";$("stType").value="";
  if(t)await db.rpc("student_logout",{p_token:t});$("aLogin").click();ptab("report")};
 $("chgPw").onclick=()=>{$("pwBox").hidden=!$("pwBox").hidden};
 $("typeBtn").onclick=async()=>{const m=$("acctMsg"),v=$("stType").value;if(!SES)return;
  if(!TYPES.includes(v)){say(m,"Choose Regular, Assess or Top-Up first.","bad");return}
  const {data,error}=await db.rpc("student_set_type",{p_token:SES.token,p_type:v});
- if(error||!data||data.status!=="ok"){say(m,(data&&data.message)||"Could not save your programme type. Please try again.","bad");return}
- SES.extras=Object.assign({},SES.extras,{student_type:v});syncType();const p=SES.profile;
+ if(error||!data||data.status!=="ok"){say(m,(data&&data.message)||(error?"Could not save your programme type: "+error.message:"Could not save your programme type. Please try again."),"bad");return}
+ SES.extras=Object.assign({},SES.extras,{student_type:v});pendSet("","");syncType();const p=SES.profile;
  $("whoAmI").textContent="Reporting as "+p.full_name+" ("+p.index_number+"), "+p.year+" "+p.programme+" "+p.intake+" Intake"+typeSuffix();
  say(m,"Programme type saved: "+v+".","ok")};
 $("pwBtn").onclick=async()=>{const m=$("acctMsg");const {data,error}=await db.rpc("student_change_password",{p_token:SES.token,p_old:$("oldPw").value,p_new:$("newPw").value});
@@ -846,17 +880,27 @@ function backupCard(){const m=el("div"),b=el("button",{className:"b",textContent
   const grab=async(tbl,ord)=>{let all=[],from=0;for(;;){const {data,error}=await db.from(tbl).select("*").order(ord).range(from,from+999);if(error)throw error;all=all.concat(data);if(data.length<1000)break;from+=1000}return all};
   try{const out={created:new Date().toISOString()};
    for(const [k,o] of [["v_cases_full","created_at"],["students","created_at"],["courses","name"],["course_assignments","created_at"],["admission_batches","admission_year"],["issue_categories","sort_order"],["case_statuses","sort_order"],["case_notes","created_at"],["case_status_history","changed_at"],["deleted_cases","deleted_at"]])out[k]=await grab(k,o);
+   out.student_programme_types=Object.values(await extrasMap());
    await db.rpc("log_export",{p_description:"Full backup"});
    el("a",{href:URL.createObjectURL(new Blob([JSON.stringify(out)],{type:"application/json"})),download:"exam-platform-backup-"+new Date().toISOString().slice(0,10)+".json"}).click();note(m,"Backup downloaded. Keep it somewhere private and safe.",true)}
   catch(e){note(m,"Backup failed: "+(e.message||e))}b.disabled=false};
  return el("div",{className:"card"},el("h3",{textContent:"Backup"}),el("div",{textContent:"Contains private student details. Store it in a private place.",style:"color:var(--mute);margin-bottom:8px"}),b,m)}
-async function studentAccounts(){const v=$("v-students"),q=el("input",{type:"text",placeholder:"Search student ID or name",style:"width:100%"}),m=el("div"),box=el("div");
+async function studentAccounts(){const v=$("v-students"),q=el("input",{type:"text",placeholder:"Search student ID, name or programme type (Regular, Assess, Top-Up)"}),m=el("div"),box=el("div"),cntEl=el("div",{style:"margin:8px 0;font-weight:600"});
+ const tf=el("select",{},new Option("All programme types",""),...TYPES.map(x=>new Option(x,x)),new Option("Not chosen","Not chosen")),xb=el("button",{className:"b g",textContent:"Download Excel (current list)"});
+ const ORD=["Regular","Assess","Top-Up","Not chosen"];let shown=[];
  const act=async(fn,args,okMsg)=>{const {data,error}=await db.rpc(fn,args);const bad=error||(data&&data.status==="error");note(m,bad?"Could not do that: "+((data&&data.message)||(error&&error.message)):okMsg,!bad);load()};
- const load=async()=>{const {data,error}=await db.rpc("admin_list_student_accounts",{p_search:q.value.trim()});if(error)return note(m,"Could not load accounts (run STUDENT_ACCOUNTS.sql).");
+ const load=async()=>{const qs=q.value.trim(),qw=typeWord(qs),qt=qw==="Not stated"?"Not chosen":qw;
+  const {data,error}=await db.rpc("admin_list_student_accounts",{p_search:qt?"":qs});if(error)return note(m,"Could not load accounts (run STUDENT_ACCOUNTS.sql).");
   const X={};let exOk=true;try{const ex=await db.rpc("admin_list_student_extras");if(ex.error||!Array.isArray(ex.data))exOk=false;else ex.data.forEach(r=>{X[String(r.index_number).toUpperCase()]=r})}catch(e){exOk=false}
   if(!exOk)note(m,"Editing the intake year and programme type needs UPDATE_3_FEATURES.sql to be run in Supabase first.");
-  const t=el("table",{},el("tr",{},...["Student ID","Name","Batch","Intake year","Programme type","Phone","Reports","Last login","Status","Actions"].map(h=>el("th",{textContent:h}))));
-  (data||[]).forEach(a=>{const ex=X[String(a.index_number).toUpperCase()]||{},curY=ex.intake_year||parseInt(a.batch,10)||0,curT=ex.student_type||"";
+  const exOf=a=>X[String(a.index_number).toUpperCase()]||{},tpOf=a=>exOf(a).student_type||"",f=tf.value||qt;
+  const list=(data||[]).filter(a=>!f||(f==="Not chosen"?!tpOf(a):tpOf(a)===f)).sort((a,b)=>ORD.indexOf(tpOf(a)||"Not chosen")-ORD.indexOf(tpOf(b)||"Not chosen")||String(a.full_name).localeCompare(String(b.full_name)));
+  const cts=ORD.map(k=>[k,list.filter(a=>(tpOf(a)||"Not chosen")===k).length]).filter(x=>x[1]).map(x=>x[0]+" "+x[1]).join(", ");
+  cntEl.textContent=list.length+" student(s)"+(cts?": "+cts:"");
+  shown=list.map(a=>{const ex=exOf(a),yr=ex.intake_year||parseInt(a.batch,10)||"";return{a,tp:tpOf(a)||"Not chosen",year:yr,batch:ex.intake_year&&a.batch?String(a.batch).replace(/^\d{4}/,ex.intake_year):a.batch}});
+  const t=el("table",{},el("tr",{},...["Student ID","Name","Batch","Intake year","Programme type","Phone","Reports","Last login","Status","Actions"].map(h=>el("th",{textContent:h}))));let g="";
+  list.forEach(a=>{const ex=exOf(a),curY=ex.intake_year||parseInt(a.batch,10)||0,curT=ex.student_type||"",grp=curT||"Not chosen";
+   if(grp!==g){g=grp;t.append(el("tr",{className:"gh"},el("td",{colSpan:10,textContent:grp+" students ("+list.filter(x=>(tpOf(x)||"Not chosen")===grp).length+")"})))}
    const ys=el("select",{},...[...Array(18)].map((_,i)=>new Option(2023+i,2023+i))),ts=el("select",{},new Option("Not chosen",""),...TYPES.map(x=>new Option(x,x)));
    if(curY&&(curY<2023||curY>2040))ys.prepend(new Option(curY,curY));ys.value=String(curY);ts.value=curT;if(!exOk){ys.disabled=true;ts.disabled=true}
    const sv=el("button",{className:"b",textContent:"Save changes",disabled:!exOk}),rs=el("button",{className:"b g",textContent:"Reset password"}),tg=el("button",{className:"b g",textContent:a.is_active?"Switch off":"Switch on"}),dl=el("button",{className:"b g",textContent:"Delete",style:"color:var(--bad);border-color:var(--bad)"});
@@ -871,9 +915,19 @@ async function studentAccounts(){const v=$("v-students"),q=el("input",{type:"tex
    dl.onclick=()=>{if(confirm("Delete the account of "+a.index_number+"? Their reports are kept. They (or the real owner of the ID) can register again."))act("admin_delete_student_account",{p_account_id:a.id},"Account deleted.")};
    const batch=ex.intake_year&&a.batch?String(a.batch).replace(/^\d{4}/,ex.intake_year):a.batch;
    t.append(el("tr",{},...[a.index_number,a.full_name,batch].map(x=>el("td",{textContent:x})),el("td",{},ys),el("td",{},ts),...[a.contact,a.reports,a.last_login_at?new Date(a.last_login_at).toLocaleString():"never",a.locked?"Locked":(a.is_active?"Active":"Off")].map(x=>el("td",{textContent:x})),el("td",{},sv," ",rs," ",tg," ",dl)))});
-  box.replaceChildren((data&&data.length)?el("div",{className:"wrap"},t):el("div",{textContent:"No student accounts yet.",style:"color:var(--mute)"}))};
- q.oninput=()=>{clearTimeout(q._t);q._t=setTimeout(load,300)};
- v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Student accounts"}),el("div",{textContent:"Students create their own account with their student ID. If someone registered an ID that is not theirs, Delete that account so the real student can register. Reset gives a temporary password. Students who forget their password are told to contact their course rep and pay 10 cedis, or use the help contact shown on the website: use Reset password for them after that. You can also change a student\u2019s intake year and programme type (Regular, Assess or Top-Up) in the table below.",style:"color:var(--mute);margin-bottom:8px"}),q,m),el("div",{className:"card"},box));load()}
+  box.replaceChildren(list.length?el("div",{className:"wrap"},t):el("div",{textContent:(data&&data.length)?"No students of this programme type.":"No student accounts yet.",style:"color:var(--mute)"}))};
+ xb.onclick=async()=>{if(!shown.length)return note(m,"No students to export.");
+  const {error}=await db.rpc("log_export",{p_description:"Excel: "+shown.length+" student accounts"});if(error)return note(m,"Your role may not export records.");
+  if(typeof XLSX==="undefined")return note(m,"The Excel tool did not load. Refresh and try again.");
+  const H=["No.","Student ID","Full name","Programme type","Batch","Intake year","Phone","Reports","Last login","Status"];
+  const rowOf=(s,i)=>{const a=s.a;return[i+1,a.index_number,a.full_name,s.tp,s.batch||"",s.year||"",a.contact||"",a.reports,a.last_login_at?new Date(a.last_login_at).toLocaleString():"never",a.locked?"Locked":(a.is_active?"Active":"Off")]};
+  const sorted=shown.slice().sort((x,y)=>ORD.indexOf(x.tp)-ORD.indexOf(y.tp)||String(x.a.full_name).localeCompare(String(y.a.full_name)));
+  const wb=XLSX.utils.book_new(),add=(name,l,title)=>{const ws=XLSX.utils.aoa_to_sheet([[title],["Generated: "+new Date().toLocaleString()+"   |   "+l.length+" student(s)"],[],H].concat(l.map(rowOf)));ws["!cols"]=[6,16,28,16,22,12,16,9,22,10].map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ws,name)};
+  add("All students",sorted,"STUDENT ACCOUNTS - ALL PROGRAMME TYPES");
+  ORD.forEach(k=>{const l=sorted.filter(x=>x.tp===k);if(l.length)add(k,l,"STUDENT ACCOUNTS - "+k.toUpperCase())});
+  XLSX.writeFile(wb,"student-accounts-"+new Date().toISOString().slice(0,10)+".xlsx");note(m,"Excel file downloaded ("+shown.length+" students).",true)};
+ q.oninput=()=>{clearTimeout(q._t);q._t=setTimeout(load,300)};tf.onchange=load;
+ v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Student accounts"}),el("div",{textContent:"Students create their own account with their student ID and choose their programme type (Regular, Assess or Top-Up). Use the filter to view one type at a time, or type Regular, Assess or Top-Up in the search box. The Excel download includes a Programme type column and uses the list as filtered below. If someone registered an ID that is not theirs, Delete that account so the real student can register. Reset gives a temporary password (for students who forgot theirs). You can also change a student\u2019s intake year and programme type in the table.",style:"color:var(--mute);margin-bottom:8px"}),el("div",{className:"f"},q,tf,xb),m,cntEl),el("div",{className:"card"},box));load()}
 async function auditLog(){const v=$("v-audit");
  const {data,error}=await db.from("audit_logs").select("id,actor_id,action,table_name,record_id,created_at").order("id",{ascending:false}).limit(200);
  if(error)return v.replaceChildren(el("div",{className:"amsg",textContent:"Only the super administrator can view the audit log."}));
