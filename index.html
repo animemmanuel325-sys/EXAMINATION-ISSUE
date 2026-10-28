@@ -158,6 +158,17 @@ body.has-img header{background:linear-gradient(120deg,rgba(11,95,179,.6),rgba(14
 body.has-img .card{background:rgba(255,255,255,.88);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 body.has-img footer{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.7)}
 body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
+/* ===== SIGN IN / CREATE ACCOUNT POP-UP ===== */
+.pop{position:fixed;inset:0;z-index:80;background:rgba(8,30,40,.62);display:flex;align-items:center;justify-content:center;padding:16px}
+.popbox{position:relative;background:#fff;border-radius:18px;max-width:430px;width:100%;padding:28px 22px 22px;text-align:center;box-shadow:0 22px 60px rgba(0,0,0,.4);animation:pop .35s both}
+.popbox h2{margin:0 0 8px;color:var(--blu);font-size:1.35rem}
+.popbox p{color:var(--mute);margin:0 0 16px;line-height:1.45}
+.popbox .go{display:block;width:100%;margin-top:10px;padding:14px 12px;font-size:1.05rem}
+.popbox .go small{display:block;font-weight:400;opacity:.92;font-size:.85rem;margin-top:2px}
+.popbox .go.alt{background:#fff;color:var(--blu);border:2px solid var(--blu)}
+.popbox .go.alt:hover:not(:disabled){background:#eef4fc;transform:translateY(-2px);box-shadow:none}
+.popx{position:absolute;right:10px;top:6px;border:0;background:none;font-size:1.8rem;line-height:1;cursor:pointer;color:var(--mute)}
+.popnote{margin-top:14px;color:var(--mute);font-size:.85rem}
 </style></head><body>
 <div id="bgimgs" aria-hidden="true"></div>
 <div id="bg" aria-hidden="true"><i class="b b1"></i><i class="b b2"></i><i class="b b3"></i><i class="b b4"></i>
@@ -295,6 +306,16 @@ body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
 <footer>Your details are only seen by authorised administrators.<br><button class="dot" id="staffLink" type="button" aria-label="Staff" title=""></button></footer>
 
 </div>
+<div id="authPop" class="pop" hidden role="dialog" aria-modal="true" aria-labelledby="popT">
+  <div class="popbox">
+    <button class="popx" id="popClose" type="button" aria-label="Close">&times;</button>
+    <h2 id="popT">Sign in to report an issue</h2>
+    <p>To report an issue you need a student account. It keeps your report linked to you, so you can follow its progress.</p>
+    <button class="go" id="popLogin" type="button">Sign in<small>I already have an account</small></button>
+    <button class="go alt" id="popReg" type="button">Create an account<small>I am new here (takes about a minute)</small></button>
+    <div class="popnote">Not sure? Choose &ldquo;Create an account&rdquo;. You only do it once.</div>
+  </div>
+</div>
 <div id="adm" hidden>
 <div id="login" class="card"><h2>Admin sign in</h2>
 <input id="em" type="email" placeholder="Email" autocomplete="username"><input id="pw" type="password" placeholder="Password" autocomplete="current-password">
@@ -345,7 +366,7 @@ function demoClient(){
  const CO=["Anatomy","Physiology","Pharmacology","Pathology","Basic Nursing","First Aid"];
  const KA=["Missing examination results","Incorrect examination results","Results not uploaded","Other examination-related issue"];
  const T={admin_profiles:[{user_id:"demo",full_name:"Demo Admin",role:"super_admin",is_active:true}],
-  courses:CO.map((n,i)=>({id:"c"+i,name:n,is_active:true})),
+  courses:CO.map((n,i)=>({id:"c"+i,name:n,is_active:true})),programme_types:[["Regular",10],["Access",20],["Top-Up",30]].map(a=>({name:a[0],sort_order:a[1],is_active:true})),
   issue_categories:KA.map((n,i)=>({id:"k"+i,name:n,requires_explanation:i===3,sort_order:i*10,is_active:true})),
   case_statuses:ST.map((a,i)=>({id:a[0],name:a[1],sort_order:i*10,is_active:true})),
   case_notes:[],case_status_history:[],case_documents:[],
@@ -372,10 +393,12 @@ function demoClient(){
  const rpc=async(n,a)=>{const c=T.v_cases_full;
   if(n==="dashboard_stats")return{data:{total_cases:c.length,unique_students:new Set(c.map(r=>r.index_number)).size,active_courses:T.courses.filter(x=>x.is_active).length,batches_represented:new Set(c.map(r=>r.batch_label)).size,by_level:cnt(r=>r.affected_level),by_semester:cnt(r=>r.affected_semester),by_status:cnt(r=>r.status_name),top_courses:Object.entries(cnt(r=>r.course_name)).map(([course,cases])=>({course,cases}))},error:null};
   if(n==="admin_delete_case"){const i=c.findIndex(x=>x.id===a.p_case_id);if(i>-1)c.splice(i,1);return{data:{status:"ok"},error:null}}
-  if(n==="get_courses")return{data:T.course_assignments.filter(r=>r.is_active&&r.year===a.p_year&&r.programme===a.p_programme&&r.intake===a.p_intake&&r.level===a.p_level).map(r=>({assignment_id:r.id,course_id:r.course_id,code:r.code,name:r.name,semester:r.semester})),error:null};
-  if(n==="admin_list_assignments")return{data:T.course_assignments.filter(r=>r.year===a.p_year&&r.programme===a.p_programme&&r.intake===a.p_intake&&r.level===a.p_level).map(r=>({...r,course_active:true})),error:null};
-  if(n==="admin_assign_course"){if(T.course_assignments.some(r=>r.name.toLowerCase()===a.p_name.trim().toLowerCase()&&r.year===a.p_year&&r.programme===a.p_programme&&r.intake===a.p_intake&&r.level===a.p_level))return{data:{status:"error",message:"That course is already assigned to this group."},error:null};
-   T.course_assignments.push({id:id(),course_id:id(),code:(a.p_code||"").toUpperCase(),name:a.p_name.trim(),semester:a.p_semester,is_active:a.p_active,programme:a.p_programme,year:a.p_year,intake:a.p_intake,level:a.p_level});return{data:{status:"ok"},error:null}}
+  if(n==="admin_db_usage")return{data:{status:"ok",db_bytes:61000000,limit_bytes:524288000,auto_cleanup:true,tables:[{name:"audit_logs",bytes:9000000},{name:"cases",bytes:4000000},{name:"site_settings",bytes:2000000}]},error:null};
+  if(n==="admin_cleanup_now")return{data:{status:"ok",attempts:120,sessions:14,audit:0,deleted:0},error:null};
+  if(n==="get_courses")return{data:T.course_assignments.filter(r=>r.is_active&&r.year===a.p_year&&r.programme===a.p_programme&&(r.ptype||"Regular")===(a.p_type||"Regular")&&r.intake===a.p_intake&&r.level===a.p_level).map(r=>({assignment_id:r.id,course_id:r.course_id,code:r.code,name:r.name,semester:r.semester})),error:null};
+  if(n==="admin_list_assignments")return{data:T.course_assignments.filter(r=>r.year===a.p_year&&r.programme===a.p_programme&&(r.ptype||"Regular")===(a.p_type||"Regular")&&r.intake===a.p_intake&&r.level===a.p_level).map(r=>({...r,course_active:true})),error:null};
+  if(n==="admin_assign_course"){if(T.course_assignments.some(r=>r.name.toLowerCase()===a.p_name.trim().toLowerCase()&&r.year===a.p_year&&r.programme===a.p_programme&&(r.ptype||"Regular")===(a.p_type||"Regular")&&r.intake===a.p_intake&&r.level===a.p_level))return{data:{status:"error",message:"That course is already assigned to this group."},error:null};
+   T.course_assignments.push({id:id(),course_id:id(),code:(a.p_code||"").toUpperCase(),name:a.p_name.trim(),semester:a.p_semester,is_active:a.p_active,programme:a.p_programme,ptype:a.p_type||"Regular",year:a.p_year,intake:a.p_intake,level:a.p_level});return{data:{status:"ok"},error:null}}
   if(n==="submit_complaint")return{data:{status:"ok",cases:a.p_items.map(x=>({reference_number:"EX-DEMO"+Math.floor(Math.random()*9000+1000),case_id:id(),assignment_id:x.assignment_id}))},error:null};
   if(n==="student_register"){if(T.accts.some(x=>x.idx===a.p_index.toUpperCase()))return{data:{status:"error",message:"This student ID already has an account. Please log in."},error:null};
    const ac={id:id(),idx:a.p_index.toUpperCase(),name:a.p_name,contact:a.p_contact,pw:a.p_password,year:a.p_year,prog:a.p_programme,intake:a.p_intake,active:true,rep:[]};T.accts.push(ac);const tk="t"+id();T.sess[tk]=ac.id;return{data:{status:"ok",token:tk,profile:prof(ac)},error:null}}
@@ -510,7 +533,7 @@ async function runXls(rows,lab){if(!rows.length)return note($("cm"),"No cases to
    aoa.push(["COURSE: "+c+"   ("+L.length+" student(s): "+typeCounts(L)+")"]);aoa.push(H);
    L.forEach((r,i)=>aoa.push([i+1,r.full_name,r.index_number,r.student_type||"Not stated",r.affected_level,r.affected_semester||"",r.contact||"",r.category_name,r.status_name,r.reference_number,r.created_at]));aoa.push([])});
   const ws=XLSX.utils.aoa_to_sheet(aoa);ws["!cols"]=[6,26,16,15,8,9,16,32,22,16,22].map(w=>({wch:w}));
-  XLSX.utils.book_append_sheet(wb,ws,(by[k][0].admission_year+" "+by[k][0].programme+" "+by[k][0].intake).slice(0,31))});
+  XLSX.utils.book_append_sheet(wb,ws,(by[k][0].admission_year+" "+by[k][0].programme+(by[k][0].programme_type&&by[k][0].programme_type!=="Regular"?" "+by[k][0].programme_type:"")+" "+by[k][0].intake).slice(0,31))});
  XLSX.writeFile(wb,"exam-issues-"+lab.replace(/[^A-Za-z0-9]+/g,"-")+"-"+new Date().toISOString().slice(0,10)+".xlsx");note($("cm"),"Excel file downloaded: "+lab+".",true)}
 $("csv").onclick=()=>pickBatch("Download CSV",runCsv);
 async function runCsv(rows,lab){const {error}=await db.rpc("log_export",{p_description:"CSV: "+rows.length+" rows"});
@@ -573,13 +596,14 @@ function buildCourses(rows){const L=$("courseList");L.replaceChildren();
   L.append(el("div",{className:"ci"},el("label",{},cb,c.name),more));
   c._cb=cb;c._sel=sel})}
 const sel3=()=>({y:$("year").value,p:$("programme").value,i:$("intake").value,l:$("affLevel").value});
+const batchType=()=>{const t=SES&&SES.extras&&SES.extras.student_type;return t==="Assess"?"Access":(t==="Top-Up"?"Top-Up":"Regular")};
 async function loadGroup(){const {y,p,i,l}=sel3();courseRows=[];$("courseList").replaceChildren();const m=$("courseMsg");m.hidden=false;m.className="msg warn";
  if(!y||!p||!i||!l){m.textContent="Select your year, programme, intake and level to see your courses.";return}
  m.textContent="Loading your courses...";
- const {data,error}=await db.rpc("get_courses",{p_year:+y,p_programme:p,p_intake:i,p_level:+l});
+ const {data,error}=await db.rpc("get_courses",Object.assign({p_year:+y,p_programme:p,p_intake:i,p_level:+l},batchType()!=="Regular"?{p_type:batchType()}:{}));
  const n=sel3();if(n.y!==y||n.p!==p||n.i!==i||n.l!==l)return;
  if(error){m.className="msg bad";m.textContent="Could not load courses ("+error.message+"). Please refresh and try again.";return}
- if(!data||!data.length){m.textContent="Courses for the "+y+" "+p+" "+i+" Intake, Level "+l+" are not yet available. Please check again later or contact your department.";return}
+ if(!data||!data.length){m.textContent="Courses for the "+y+" "+p+" "+i+" Intake"+(batchType()!=="Regular"?" ("+batchType()+")":"")+", Level "+l+" are not yet available. Please check again later or contact your department.";return}
  m.hidden=true;courseRows=data.map(r=>({id:r.assignment_id,name:(r.code?r.code+" - ":"")+r.name+(r.semester?" (Semester "+r.semester+")":"")}));buildCourses(courseRows)}
 const chain=()=>{const y=$("year").value,p=$("programme").value,i=$("intake").value;$("programme").disabled=!y;$("intake").disabled=!(y&&p);$("affLevel").disabled=!(y&&p&&i);loadGroup()};
 $("year").onchange=chain;$("programme").onchange=chain;$("intake").onchange=chain;$("affLevel").onchange=loadGroup;
@@ -621,7 +645,7 @@ const PKEY="xpt";
 const pendGet=()=>{try{const o=JSON.parse(localStorage.getItem(PKEY));return o&&o.i&&TYPES.includes(o.t)?o:null}catch(e){return null}};
 const pendSet=(i,t)=>{try{t?localStorage.setItem(PKEY,JSON.stringify({i:String(i).toUpperCase(),t})):localStorage.removeItem(PKEY)}catch(e){}};
 const pendMine=()=>{const o=pendGet();return o&&SES&&SES.profile&&String(SES.profile.index_number).toUpperCase()===o.i?o.t:""};
-function refreshWho(){if(!SES)return;const p=SES.profile;$("whoAmI").textContent="Reporting as "+p.full_name+" ("+p.index_number+"), "+p.year+" "+p.programme+" "+p.intake+" Intake"+typeSuffix()}
+function refreshWho(){if(!SES)return;const p=SES.profile;$("whoAmI").textContent="Reporting as "+p.full_name+" ("+p.index_number+"), "+p.year+" "+p.programme+" "+p.intake+" Intake"+typeSuffix();if($("affLevel").value)loadGroup()}
 function syncType(){const t=SES&&SES.extras&&SES.extras.student_type,pd=t?"":pendMine();$("stType").value=t||pd||"";$("typeNote").textContent=t?"":(pd?"Your programme type ("+pd+") is not saved yet. Press Save.":"Please choose your programme type (Regular, Assess or Top-Up) and press Save.")}
 async function getExtras(t){try{const {data}=await db.rpc("student_get_extras",{p_token:t});return data&&data.status==="ok"?data:{}}catch(e){return{}}}
 async function saveType(token,v){try{const {data,error}=await db.rpc("student_set_type",{p_token:token,p_type:v});if(error)return{ok:false,msg:error.message};if(!data||data.status!=="ok")return{ok:false,msg:(data&&data.message)||"not saved"};return{ok:true}}catch(e){return{ok:false,msg:String(e&&e.message||e)}}}
@@ -634,8 +658,8 @@ async function restoreSession(){if(SES)return;const t=tokGet();if(!t)return;cons
  if(data&&data.status==="ok"){const x=await getExtras(t),pr=withExtras(data.profile,x);SES={token:t,profile:pr,extras:x};applyProfile(pr);flushPending()}else tokSet("")}
 function views(w){["reportView","mineView","trackView"].forEach(id=>$(id).hidden=true);$("authBox").hidden=true;$(w+"View").hidden=false;
  ["Report","Mine","Track"].forEach(n=>$("tab"+n).classList.toggle("on",n.toLowerCase()===w));$("acctBar").hidden=!SES}
-function ptab(w){if(w===true)w="report";if(w===false)w="track";
- if((w==="report"||w==="mine")&&!SES){afterLogin=w;["reportView","mineView","trackView"].forEach(id=>$(id).hidden=true);$("authBox").hidden=false;$("acctBar").hidden=true;
+function ptab(w,quiet){if(w===true)w="report";if(w===false)w="track";
+ if((w==="report"||w==="mine")&&!SES){afterLogin=w;["reportView","mineView","trackView"].forEach(id=>$(id).hidden=true);$("acctBar").hidden=true;if(quiet)$("authBox").hidden=false;else{$("authBox").hidden=true;showAuthPop()}
   ["Report","Mine","Track"].forEach(n=>$("tab"+n).classList.remove("on"));regOpened=Date.now();return}
  views(w);if(w==="mine")loadMine()}
 $("tabReport").onclick=()=>ptab("report");$("tabMine").onclick=()=>ptab("mine");$("tabTrack").onclick=()=>ptab("track");
@@ -667,7 +691,7 @@ $("regF").addEventListener("submit",async e=>{e.preventDefault();const m=$("rMsg
   if(!r.ok)say($("acctMsg"),"Your account is ready, but your programme type could not be saved yet ("+r.msg+"). Choose it above and press Save.","warn")}
  catch(err){say(m,"Could not finish creating the account: "+(err&&err.message?err.message:"network problem")+".","bad")}finally{btn.disabled=false}});
 $("logoutBtn").onclick=async()=>{const t=SES&&SES.token;SES=null;tokSet("");$("pwBox").hidden=true;$("ctaLogin").textContent="Student login / Create account";courseRows=[];$("courseList").replaceChildren();$("whoAmI").textContent="";$("stType").value="";
- if(t)await db.rpc("student_logout",{p_token:t});$("aLogin").click();ptab("report")};
+ if(t)await db.rpc("student_logout",{p_token:t});$("aLogin").click();ptab("report",true)};
 $("chgPw").onclick=()=>{$("pwBox").hidden=!$("pwBox").hidden};
 $("typeBtn").onclick=async()=>{const m=$("acctMsg"),v=$("stType").value;if(!SES)return;
  if(!TYPES.includes(v)){say(m,"Choose Regular, Assess or Top-Up first.","bad");return}
@@ -675,7 +699,7 @@ $("typeBtn").onclick=async()=>{const m=$("acctMsg"),v=$("stType").value;if(!SES)
  if(error||!data||data.status!=="ok"){say(m,(data&&data.message)||(error?"Could not save your programme type: "+error.message:"Could not save your programme type. Please try again."),"bad");return}
  SES.extras=Object.assign({},SES.extras,{student_type:v});pendSet("","");syncType();const p=SES.profile;
  $("whoAmI").textContent="Reporting as "+p.full_name+" ("+p.index_number+"), "+p.year+" "+p.programme+" "+p.intake+" Intake"+typeSuffix();
- say(m,"Programme type saved: "+v+".","ok")};
+ say(m,"Programme type saved: "+v+".","ok");if($("affLevel").value)loadGroup()};
 $("pwBtn").onclick=async()=>{const m=$("acctMsg");const {data,error}=await db.rpc("student_change_password",{p_token:SES.token,p_old:$("oldPw").value,p_new:$("newPw").value});
  if(error||!data||data.status!=="ok"){say(m,(data&&data.message)||"Could not change the password.","bad");return}$("oldPw").value="";$("newPw").value="";$("pwBox").hidden=true;say(m,"Password changed.","ok")};
 async function loadMine(){const box=$("mineList");box.replaceChildren(el("div",{textContent:"Loading...",style:"color:var(--mute)"}));
@@ -799,7 +823,7 @@ async function website(){const v=$("v-site");const {data:s}=await db.from("site_
  sv.onclick=async()=>{const r=(k,val)=>({key:k,value:val,is_public:true,updated_by:me.id});
   const {error}=await db.from("site_settings").upsert([r("welcome_title",t.value),r("welcome_message",m.value),r("reporting_instructions",ins.value)]);
   note(msg,error?"Only the super administrator can change this.":"Saved. Refresh the public page to see it.",!error)};
- const tm=el("div"),cb=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),mfaCard(),bgCard(s),qrCard(),el("h3",{textContent:"Website contacts"}),cb,el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
+ const tm=el("div"),cb=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),mfaCard(),...(me&&me.role==="super_admin"?[dbCard()]:[]),bgCard(s),qrCard(),el("h3",{textContent:"Website contacts"}),cb,el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
  await contactsEditor(cb);await teamEditor(tm)}
 async function teamEditor(box){const {data}=await db.from("team_members").select("*").order("sort_order").order("role_title");const m=el("div");
  const add=el("button",{className:"b g",textContent:"+ Add team member"});
@@ -939,21 +963,29 @@ async function auditLog(){const v=$("v-audit");
  (data||[]).forEach(r=>t.append(el("tr",{},...[new Date(r.created_at).toLocaleString(),nm2[r.actor_id]||(r.actor_id?String(r.actor_id).slice(0,8):"system"),r.action,r.table_name||"",String(r.record_id||"").slice(0,13)].map(x=>el("td",{textContent:x})))));
  v.replaceChildren(backupCard(),await deletedCard(),el("div",{className:"card"},el("h3",{textContent:"Audit log (latest 200 actions, cannot be edited or deleted)"}),(data&&data.length)?el("div",{className:"wrap"},t):el("div",{textContent:"No entries yet.",style:"color:var(--mute)"})))}
 async function courseBatches(){const v=$("v-courses");
- const sy=el("select"),sp=el("select"),si=el("select"),sl=el("select"),m=el("div"),body=el("div"),q=el("input",{type:"text",placeholder:"Search courses in this group",style:"width:100%;margin-top:8px"});
+ const sy=el("select"),sp=el("select"),st=el("select"),si=el("select"),sl=el("select"),m=el("div"),body=el("div"),q=el("input",{type:"text",placeholder:"Search courses in this group",style:"width:100%;margin-top:8px"});
  for(let y=2023;y<=2040;y++)sy.append(new Option(y+" Year Batch",y));
  sp.append(new Option("Nursing","Nursing"),new Option("Midwifery","Midwifery"));
+ let ptypes=["Regular","Access","Top-Up"];
+ const fillTypes=async()=>{const {data}=await db.from("programme_types").select("name").eq("is_active",true).order("sort_order");if(data&&data.length)ptypes=data.map(x=>x.name);
+  const cur=st.value;st.replaceChildren(new Option("Select programme type",""));ptypes.forEach(n=>st.append(new Option(n,n)));st.value=ptypes.includes(cur)?cur:""};
+ st.append(new Option("Select programme type",""));ptypes.forEach(n=>st.append(new Option(n,n)));
  si.append(new Option("January Intake","January"),new Option("September Intake","September"));
  [100,200,300,400].forEach(l=>sl.append(new Option("Level "+l,l)));
  const yy=new Date().getFullYear();if(yy>=2023&&yy<=2040)sy.value=String(yy);
  let list=[];
  const draw=()=>{body.replaceChildren();
+  if(!st.value){body.append(el("div",{className:"card"},el("h3",{textContent:"Choose the programme type"}),el("div",{textContent:"Select Regular, Access or Top-Up above to see or add the courses of that batch. Every batch belongs to exactly one programme type.",style:"color:var(--mute)"})));return}
   const code=el("input",{type:"text",placeholder:"Course code e.g. ANA101",maxLength:20}),nm_=el("input",{type:"text",placeholder:"Course name",maxLength:150});
   const sem=el("select");sem.append(new Option("Semester: not specified",""),new Option("First Semester","1"),new Option("Second Semester","2"));
   const act=el("select");act.append(new Option("Active","1"),new Option("Inactive","0"));
   const add=el("button",{className:"b",textContent:"Add course to this group"});
-  add.onclick=async()=>{const {data,error}=await db.rpc("admin_assign_course",{p_code:code.value,p_name:nm_.value,p_year:+sy.value,p_programme:sp.value,p_intake:si.value,p_level:+sl.value,p_semester:sem.value?+sem.value:null,p_active:act.value==="1"});
+  add.onclick=async()=>{if(!st.value)return note(m,"Please select the programme type first.");
+   const ex=await db.from("admission_batches").select("id").eq("admission_year",+sy.value).eq("programme",sp.value).eq("programme_type",st.value).eq("intake",si.value).maybeSingle();
+   if(!(ex&&ex.data)&&!confirm("This creates a NEW batch:\n"+sy.value+" "+sp.value+" - "+st.value+" - "+si.value+" Intake\n\nIs the programme type ("+st.value+") correct?"))return;
+   const {data,error}=await db.rpc("admin_assign_course",Object.assign({p_code:code.value,p_name:nm_.value,p_year:+sy.value,p_programme:sp.value,p_intake:si.value,p_level:+sl.value,p_semester:sem.value?+sem.value:null,p_active:act.value==="1"},st.value!=="Regular"?{p_type:st.value}:{}));
    if(error)return note(m,"Could not add (check your role).");if(data.status!=="ok")return note(m,data.message);note(m,"Course added.",true);await lookups();load()};
-  body.append(el("div",{className:"card"},el("h3",{textContent:"Add a course to "+sy.value+" "+sp.value+" "+si.value+" Intake, Level "+sl.value}),el("div",{className:"f"},code,nm_,sem,act),add));
+  body.append(el("div",{className:"card"},el("h3",{textContent:"Add a course to "+sy.value+" "+sp.value+" ("+st.value+") "+si.value+" Intake, Level "+sl.value}),el("div",{className:"f"},code,nm_,sem,act),add));
   const t=q.value.toLowerCase(),rs=list.filter(x=>((x.code||"")+" "+x.name).toLowerCase().includes(t));
   const box=el("div",{className:"card"},el("h3",{textContent:rs.length+" course(s) in this group"}));
   if(!rs.length)box.append(el("div",{textContent:"No courses yet. Students will see that courses are not available for this group.",style:"color:var(--mute)"}));
@@ -973,11 +1005,11 @@ async function courseBatches(){const v=$("v-courses");
     const {error}=await db.from("course_assignments").delete().eq("id",x.id);note(m,error?"Permission denied.":"Removed from this group.",!error);if(!error)load()};
    box.append(el("div",{className:"arow"+(x.is_active?"":" off")},ci,ni,ss,sv,tg,rm))});
   body.append(box)};
- const load=async()=>{const {data,error}=await db.rpc("admin_list_assignments",{p_year:+sy.value,p_programme:sp.value,p_intake:si.value,p_level:+sl.value});
+ const load=async()=>{if(!st.value){list=[];draw();return}const {data,error}=await db.rpc("admin_list_assignments",Object.assign({p_year:+sy.value,p_programme:sp.value,p_intake:si.value,p_level:+sl.value},st.value!=="Regular"?{p_type:st.value}:{}));
   if(error){note(m,"Could not load courses.");return}list=data||[];draw()};
- [sy,sp,si,sl].forEach(x=>x.onchange=load);q.oninput=draw;
+ [sy,sp,st,si,sl].forEach(x=>x.onchange=load);q.oninput=draw;
  const qm=el("div"),qbox=el("div",{className:"f"});
- const runPreset=async(pr,btn)=>{if(!confirm("Add all "+pr.rows.length+" courses to the "+pr.year+" "+pr.programme+" "+pr.intake+" Intake? Courses already there are skipped."))return;
+ const runPreset=async(pr,btn)=>{if(!confirm("Add all "+pr.rows.length+" courses to the "+pr.year+" "+pr.programme+" "+pr.intake+" Intake (Regular)? Courses already there are skipped."))return;
   btn.disabled=true;let added=0,skipped=0,failed=0,firstErr="";
   for(let i=0;i<pr.rows.length;i++){const [lv,cd,nm0]=pr.rows[i];note(qm,"Working... "+(i+1)+" of "+pr.rows.length,true);
    const call=code=>db.rpc("admin_assign_course",{p_code:code,p_name:nm0,p_year:pr.year,p_programme:pr.programme,p_intake:pr.intake,p_level:lv,p_semester:null,p_active:true});
@@ -985,7 +1017,7 @@ async function courseBatches(){const v=$("v-courses");
    if(r.error){failed++;if(!firstErr)firstErr=r.error.message}else if(r.data.status==="ok")added++;else skipped++}
   btn.disabled=false;note(qm,"Finished: "+added+" added, "+skipped+" already there, "+failed+" failed."+(firstErr?" Reason: "+firstErr:""),!failed);await lookups();load()};
  PRESETS.forEach(pr=>{const bt=el("button",{className:"b",textContent:"Load "+pr.label});bt.onclick=()=>runPreset(pr,bt);qbox.append(bt)});
- v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Courses by year batch, programme, intake and level"}),el("div",{className:"f"},sy,sp,si,sl),q,m),el("div",{className:"card"},el("h3",{textContent:"Quick load"}),el("div",{textContent:"Loads the course lists you have sent, in one click. Courses already there are skipped.",style:"color:var(--mute);margin-bottom:8px"}),qbox,qm),body);load()}
+ v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Courses by year batch, programme, programme type, intake and level"}),el("div",{className:"f"},sy,sp,st,si,sl),q,m),el("div",{className:"card"},el("h3",{textContent:"Quick load"}),el("div",{textContent:"Loads the course lists you have sent, in one click. Courses already there are skipped.",style:"color:var(--mute);margin-bottom:8px"}),qbox,qm),body);fillTypes().then(load)}
 const validImg=u=>typeof u==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(u);
 let slideT;function setSlides(list){const box=$("bgimgs");box.replaceChildren();clearInterval(slideT);document.body.classList.toggle("has-img",list.length>0);
  list.forEach((u,i)=>{const d=el("div",{className:"sl"+(i===0?" on":"")});d.style.backgroundImage='url("'+u+'")';box.append(d)});
@@ -995,6 +1027,18 @@ function compressImage(file,maxBytes,maxDim){return new Promise((res,rej)=>{if(!
   let W=img.width,H=img.height;const sc=Math.min(1,maxDim/Math.max(W,H));W=Math.round(W*sc);H=Math.round(H*sc);const c=document.createElement("canvas");let q=.85,out="";
   for(let i=0;i<14;i++){c.width=W;c.height=H;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);out=c.toDataURL("image/jpeg",q);if(out.length*.75<=maxBytes)break;if(q>.45)q-=.1;else{W=Math.round(W*.8);H=Math.round(H*.8)}}
   out.length*.75<=maxBytes?res(out):rej(new Error("big"))};img.src=fr.result};fr.readAsDataURL(file)})}
+function dbCard(){const box=el("div"),msg=el("div"),card=el("div",{className:"card"},el("h3",{textContent:"Database space (free plan: 500 MB)"}),box,msg);
+ const load=async()=>{const {data,error}=await db.rpc("admin_db_usage");
+  if(error||!data||data.status!=="ok"){box.replaceChildren(el("div",{textContent:"Not available yet. Run PROGRAMME_TYPE_AND_SPACE.sql in Supabase.",style:"color:var(--mute)"}));return}
+  const used=data.db_bytes,lim=data.limit_bytes,pct=Math.min(100,Math.round(used/lim*100)),mb=n=>(n/1048576).toFixed(1)+" MB";
+  const bar=el("div",{style:"height:14px;background:var(--line);border-radius:8px;overflow:hidden;margin:8px 0"},el("div",{style:"height:100%;width:"+pct+"%;background:"+(pct>=85?"var(--bad)":pct>=60?"#d97706":"var(--grn)")}));
+  const rows=el("div",{style:"font-size:.9rem;color:var(--mute)"});(data.tables||[]).slice(0,5).forEach(t=>rows.append(el("div",{textContent:t.name+": "+mb(t.bytes)})));
+  const btn=el("button",{className:"b g",textContent:"Clean up old data now"});
+  btn.onclick=async()=>{btn.disabled=true;const {data:r,error:e}=await db.rpc("admin_cleanup_now");btn.disabled=false;
+   note(msg,e||!r?"Could not clean up.":"Cleaned: "+r.attempts+" old rate-limit rows, "+r.sessions+" expired sessions, "+r.audit+" old audit entries, "+r.deleted+" old deleted-report copies.",!(e||!r));load()};
+  box.replaceChildren(el("div",{textContent:mb(used)+" used of "+mb(lim)+" ("+pct+"%)",style:"font-weight:700"}),bar,rows,
+   el("div",{textContent:"Automatic nightly cleanup: "+(data.auto_cleanup?"ON":"OFF (turn on pg_cron in Supabase > Database > Extensions, then rerun the SQL)"),style:"margin:8px 0"}),btn)};
+ load();return card}
 function bgCard(s){const keys=[1,2,3,4,5,6].map(i=>"bg_image_"+i),cur={},msg=el("div"),grid=el("div",{className:"f"});
  keys.forEach(k=>{const r=(s||[]).find(x=>x.key===k);cur[k]=r&&typeof r.value==="string"?r.value:""});
  const refresh=()=>setSlides(keys.map(k=>cur[k]).filter(validImg));
@@ -1013,6 +1057,13 @@ function qrCard(){const c=el("div",{className:"card"},el("h3",{textContent:"QR c
  c.append(el("div",{textContent:url}),el("img",{src:q.createDataURL(8,4),alt:"QR code",style:"width:220px;height:220px;image-rendering:pixelated;background:#fff;display:block;margin:10px 0"}),
   el("a",{href:q.createDataURL(12,4),download:"examination-platform-qr.gif",textContent:"Download QR code",style:"color:var(--pri);font-weight:700"}),
   el("div",{textContent:"Print it on notice boards. Students scan it to open this page.",style:"color:var(--mute);margin-top:6px"}));return c}
+function showAuthPop(){$("authPop").hidden=false;setTimeout(()=>$("popLogin").focus(),30)}
+function hideAuthPop(){$("authPop").hidden=true}
+function chooseAuth(mode){hideAuthPop();$("authBox").hidden=false;$(mode==="reg"?"aReg":"aLogin").click();regOpened=Date.now();setTimeout(()=>{const f=$(mode==="reg"?"rId":"lId");if(f)f.focus()},60)}
+$("popLogin").onclick=()=>chooseAuth("login");$("popReg").onclick=()=>chooseAuth("reg");
+$("popClose").onclick=()=>{hideAuthPop();goHome()};
+$("authPop").addEventListener("click",e=>{if(e.target===$("authPop")){hideAuthPop();goHome()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("authPop").hidden){hideAuthPop();goHome()}});
 async function openPortal(w){formOpened=Date.now();regOpened=Date.now();document.body.classList.add("inportal");$("home").hidden=true;$("portal").hidden=false;window.scrollTo(0,0);afterLogin=w==="mine"?"mine":"report";await restoreSession();ptab(w)}
 function goHome(){document.body.classList.remove("inportal");$("portal").hidden=true;$("home").hidden=false;window.scrollTo(0,0)}
 let idleT;const idleReset=()=>{clearTimeout(idleT);if(me)idleT=setTimeout(async()=>{await db.auth.signOut();location.reload()},15*60*1000)};
