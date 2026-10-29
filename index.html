@@ -169,6 +169,7 @@ body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
 .popbox .go.alt:hover:not(:disabled){background:#eef4fc;transform:translateY(-2px);box-shadow:none}
 .popx{position:absolute;right:10px;top:6px;border:0;background:none;font-size:1.8rem;line-height:1;cursor:pointer;color:var(--mute)}
 .popnote{margin-top:14px;color:var(--mute);font-size:.85rem}
+.popbox .go small{color:rgba(255,255,255,.96)}.popbox .go.alt small{color:var(--mute)}
 </style></head><body>
 <div id="bgimgs" aria-hidden="true"></div>
 <div id="bg" aria-hidden="true"><i class="b b1"></i><i class="b b2"></i><i class="b b3"></i><i class="b b4"></i>
@@ -968,8 +969,8 @@ async function courseBatches(){const v=$("v-courses");
  sp.append(new Option("Nursing","Nursing"),new Option("Midwifery","Midwifery"));
  let ptypes=["Regular","Access","Top-Up"];
  const fillTypes=async()=>{const {data}=await db.from("programme_types").select("name").eq("is_active",true).order("sort_order");if(data&&data.length)ptypes=data.map(x=>x.name);
-  const cur=st.value;st.replaceChildren(new Option("Select programme type",""));ptypes.forEach(n=>st.append(new Option(n,n)));st.value=ptypes.includes(cur)?cur:""};
- st.append(new Option("Select programme type",""));ptypes.forEach(n=>st.append(new Option(n,n)));
+  const cur=st.value;st.replaceChildren(new Option("Select programme type",""));ptypes.forEach(n=>st.append(new Option(n,n)));st.value=ptypes.includes(cur)?cur:"Regular"};
+ st.append(new Option("Select programme type",""));ptypes.forEach(n=>st.append(new Option(n,n)));st.value="Regular";
  si.append(new Option("January Intake","January"),new Option("September Intake","September"));
  [100,200,300,400].forEach(l=>sl.append(new Option("Level "+l,l)));
  const yy=new Date().getFullYear();if(yy>=2023&&yy<=2040)sy.value=String(yy);
@@ -1017,7 +1018,9 @@ async function courseBatches(){const v=$("v-courses");
    if(r.error){failed++;if(!firstErr)firstErr=r.error.message}else if(r.data.status==="ok")added++;else skipped++}
   btn.disabled=false;note(qm,"Finished: "+added+" added, "+skipped+" already there, "+failed+" failed."+(firstErr?" Reason: "+firstErr:""),!failed);await lookups();load()};
  PRESETS.forEach(pr=>{const bt=el("button",{className:"b",textContent:"Load "+pr.label});bt.onclick=()=>runPreset(pr,bt);qbox.append(bt)});
- v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Courses by year batch, programme, programme type, intake and level"}),el("div",{className:"f"},sy,sp,st,si,sl),q,m),el("div",{className:"card"},el("h3",{textContent:"Quick load"}),el("div",{textContent:"Loads the course lists you have sent, in one click. Courses already there are skipped.",style:"color:var(--mute);margin-bottom:8px"}),qbox,qm),body);fillTypes().then(load)}
+ v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Courses by year batch, programme, programme type, intake and level"}),el("div",{className:"f"},sy,sp,st,si,sl),q,m),el("div",{className:"card"},el("h3",{textContent:"Quick load"}),el("div",{textContent:"Loads the course lists you have sent, in one click. Courses already there are skipped.",style:"color:var(--mute);margin-bottom:8px"}),qbox,qm),body);fillTypes().then(async()=>{try{const d=await db.from("course_assignments").select("level,admission_batches(*)").order("created_at",{ascending:false}).limit(1);
+   const r=d&&d.data&&d.data[0];let b=r&&r.admission_batches;if(Array.isArray(b))b=b[0];
+   if(b&&b.admission_year){sy.value=String(b.admission_year);sp.value=b.programme;if(ptypes.includes(b.programme_type||"Regular"))st.value=b.programme_type||"Regular";si.value=b.intake;sl.value=String(r.level)}}catch(e){}}).then(load)}
 const validImg=u=>typeof u==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(u);
 let slideT;function setSlides(list){const box=$("bgimgs");box.replaceChildren();clearInterval(slideT);document.body.classList.toggle("has-img",list.length>0);
  list.forEach((u,i)=>{const d=el("div",{className:"sl"+(i===0?" on":"")});d.style.backgroundImage='url("'+u+'")';box.append(d)});
