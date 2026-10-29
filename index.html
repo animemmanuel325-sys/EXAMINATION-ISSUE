@@ -1006,8 +1006,16 @@ async function courseBatches(){const v=$("v-courses");
     const {error}=await db.from("course_assignments").delete().eq("id",x.id);note(m,error?"Permission denied.":"Removed from this group.",!error);if(!error)load()};
    box.append(el("div",{className:"arow"+(x.is_active?"":" off")},ci,ni,ss,sv,tg,rm))});
   body.append(box)};
- const load=async()=>{if(!st.value){list=[];draw();return}const {data,error}=await db.rpc("admin_list_assignments",Object.assign({p_year:+sy.value,p_programme:sp.value,p_intake:si.value,p_level:+sl.value},st.value!=="Regular"?{p_type:st.value}:{}));
-  if(error){note(m,"Could not load courses.");return}list=data||[];draw()};
+ const listVia=async()=>{const args=Object.assign({p_year:+sy.value,p_programme:sp.value,p_intake:si.value,p_level:+sl.value},st.value!=="Regular"?{p_type:st.value}:{});
+  const r=await db.rpc("admin_list_assignments",args);if(!r.error)return r;
+  // fallback: read the tables directly (administrators are allowed to), so the list still shows
+  const q=wt=>{let x=db.from("course_assignments").select("id,semester,is_active,code,level,courses(id,name,code,is_active),admission_batches!inner(admission_year,programme,intake,programme_type)").eq("level",+sl.value).eq("admission_batches.admission_year",+sy.value).eq("admission_batches.programme",sp.value).eq("admission_batches.intake",si.value);if(wt)x=x.eq("admission_batches.programme_type",st.value);return x};
+  let f=await q(true);if(f.error)f=await q(false);if(f.error)return r;
+  const rows=(f.data||[]).map(x=>{const c=(Array.isArray(x.courses)?x.courses[0]:x.courses)||{};return{id:x.id,course_id:c.id,code:x.code||c.code||"",name:c.name||"",semester:x.semester,is_active:x.is_active,course_active:c.is_active}});
+  rows.sort((a,b)=>(a.semester||9)-(b.semester||9)||String(a.code).localeCompare(String(b.code))||String(a.name).localeCompare(String(b.name)));return{data:rows,error:null}};
+ const load=async()=>{if(!st.value){list=[];draw();return}const r=await listVia();
+  if(r.error){note(m,"Could not load courses: "+(r.error.message||"unknown error")+(r.error.code?" ("+r.error.code+")":"")+". Run FIX_COURSE_LIST.sql in Supabase.");return}
+  list=r.data||[];draw()};
  [sy,sp,st,si,sl].forEach(x=>x.onchange=load);q.oninput=draw;
  const qm=el("div"),qbox=el("div",{className:"f"});
  const runPreset=async(pr,btn)=>{if(!confirm("Add all "+pr.rows.length+" courses to the "+pr.year+" "+pr.programme+" "+pr.intake+" Intake (Regular)? Courses already there are skipped."))return;
