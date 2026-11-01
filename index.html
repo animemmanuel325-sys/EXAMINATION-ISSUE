@@ -170,6 +170,14 @@ body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
 .popx{position:absolute;right:10px;top:6px;border:0;background:none;font-size:1.8rem;line-height:1;cursor:pointer;color:var(--mute)}
 .popnote{margin-top:14px;color:var(--mute);font-size:.85rem}
 .popbox .go small{color:rgba(255,255,255,.96)}.popbox .go.alt small{color:var(--mute)}
+/* ===== LIGHT DESIGN: fewer effects for slow phones and slow networks ===== */
+.liteBtn{display:block;margin:8px auto 0;background:none;border:0;color:var(--blu);text-decoration:underline;cursor:pointer;font-size:.85rem}
+body.lite #bg .b,body.lite #bg svg,body.lite #bg .pl,body.lite header .ecg,body.lite header::before,body.lite header::after{display:none!important}
+body.lite header{animation:none}
+body.lite .card{backdrop-filter:none;-webkit-backdrop-filter:none}
+body.lite .rv{opacity:1;transform:none;transition:none}
+body.lite *,body.lite *::before,body.lite *::after{animation:none!important;transition:none!important}
+@media(max-width:700px){#bg .b{filter:blur(28px)}body.has-img .card{backdrop-filter:none;-webkit-backdrop-filter:none}}
 </style></head><body>
 <div id="bgimgs" aria-hidden="true"></div>
 <div id="bg" aria-hidden="true"><i class="b b1"></i><i class="b b2"></i><i class="b b3"></i><i class="b b4"></i>
@@ -304,7 +312,7 @@ body.has-img .tabs button:not(.on){background:rgba(255,255,255,.85)}
   </section>
 </div>
 </main>
-<footer>Your details are only seen by authorised administrators.<br><button class="dot" id="staffLink" type="button" aria-label="Staff" title=""></button></footer>
+<footer>Your details are only seen by authorised administrators.<br><button id="liteBtn" type="button" class="liteBtn"></button><button class="dot" id="staffLink" type="button" aria-label="Staff" title=""></button></footer>
 
 </div>
 <div id="authPop" class="pop" hidden role="dialog" aria-modal="true" aria-labelledby="popT">
@@ -355,6 +363,11 @@ const SUPABASE_ANON_KEY="sb_publishable_m-wY_RbuqGDySB-tckEgEQ_uRq9d-mt"; // ano
 // =========================================================================
 const $=id=>document.getElementById(id);
 const el=(t,p={},...k)=>{const e=document.createElement(t);Object.assign(e,p);k.forEach(x=>e.append(x));return e};
+const LITEKEY="xlite";
+const liteAuto=(()=>{try{const c=navigator.connection||{};return !!(c.saveData||/^(slow-)?2g$|^3g$/.test(c.effectiveType||"")||(navigator.deviceMemory&&navigator.deviceMemory<=2))}catch(e){return false}})();
+const liteSaved=(()=>{try{return localStorage.getItem(LITEKEY)}catch(e){return null}})();
+function setLite(on,remember){document.body.classList.toggle("lite",!!on);if(remember){try{localStorage.setItem(LITEKEY,on?"1":"0")}catch(e){}}const b=document.getElementById("liteBtn");if(b)b.textContent=on?"Switch to the full design":"Page is slow? Switch to the light design"}
+setLite(liteSaved==="1"||(liteSaved===null&&liteAuto),false);
 const DEMO=location.hash==="#demo";
 // Some browsers/previews cannot pass Headers objects around; this converts them to plain text first.
 const safeFetch=(url,opts)=>{opts=opts||{};if(typeof Headers!=="undefined"&&opts.headers instanceof Headers){const h={};opts.headers.forEach((v,k)=>{h[k]=v});opts=Object.assign({},opts,{headers:h})}return fetch(url,opts)};
@@ -380,7 +393,7 @@ function demoClient(){
  T.v_cases_full=T.cases=NM.map((n,i)=>{const yr=2022+i%3,it=i%2?"September":"January",L=[100,200,300,400][i%4];return{id:"x"+i,reference_number:"EX-DEMO"+(1000+i),full_name:n,index_number:"NMS/"+yr+"/"+(100+i),admission_year:yr,intake:it,batch_label:yr+" - Nursing - "+it+" Intake",programme:"Nursing",course_id:"c"+i%6,course_name:CO[i%6],category_id:"k"+i%3,category_name:KA[i%3],other_explanation:null,status_id:ST[i%3][0],status_name:ST[i%3][1],current_level:400,affected_level:L,affected_semester:1+i%2,description:"Sample description of an examination problem for demonstration.",document_count:0,contact:"024123"+(1000+i),course_code:"",created_at:new Date().toISOString(),updated_at:new Date().toISOString()}});
  const from=t=>{const q={f:[],op:"select",pl:null,one:false,lim:1e9,ord:null},b={};
   const match=r=>q.f.every(([k,v])=>String(r[k])===String(v));
-  b.select=()=>b;b.or=()=>b;b.eq=(k,v)=>{q.f.push([k,v]);return b};b.limit=n=>{q.lim=n;return b};b.range=()=>b;b.order=k=>{if(!q.ord)q.ord=k;return b};
+  b.select=()=>b;b.or=()=>b;b.eq=(k,v)=>{q.f.push([k,v]);return b};b.limit=n=>{q.lim=n;return b};b.range=()=>b;b.not=()=>b;b.neq=()=>b;b.like=()=>b;b["in"]=()=>b;b.order=k=>{if(!q.ord)q.ord=k;return b};
   b.insert=r=>{q.op="insert";q.pl=r;return b};b.update=r=>{q.op="update";q.pl=r;return b};b.delete=()=>{q.op="delete";return b};b.upsert=r=>{q.op="upsert";q.pl=r;return b};
   const run=async()=>{const a=T[t]||(T[t]=[]);let d=null;
    if(q.op==="insert"){const r={id:id(),is_active:true,sort_order:99,photo:null,message:"",full_name:"",...q.pl};a.push(r);d=[r]}
@@ -394,6 +407,10 @@ function demoClient(){
  const rpc=async(n,a)=>{const c=T.v_cases_full;
   if(n==="dashboard_stats")return{data:{total_cases:c.length,unique_students:new Set(c.map(r=>r.index_number)).size,active_courses:T.courses.filter(x=>x.is_active).length,batches_represented:new Set(c.map(r=>r.batch_label)).size,by_level:cnt(r=>r.affected_level),by_semester:cnt(r=>r.affected_semester),by_status:cnt(r=>r.status_name),top_courses:Object.entries(cnt(r=>r.course_name)).map(([course,cases])=>({course,cases}))},error:null};
   if(n==="admin_delete_case"){const i=c.findIndex(x=>x.id===a.p_case_id);if(i>-1)c.splice(i,1);return{data:{status:"ok"},error:null}}
+  if(n==="admin_get_alert_config")return{data:{status:"ok",enabled:false,provider:"brevo",from:"",emails:"",site_url:"",has_key:false,cron:true},error:null};
+  if(n==="admin_set_alert_config"||n==="admin_alert_send_now")return{data:{status:"ok"},error:null};
+  if(n==="admin_send_test_alert")return{data:{status:"ok",request_id:1},error:null};
+  if(n==="admin_alert_last_result")return{data:{status:"ok",status_code:201,content:"",error:null},error:null};
   if(n==="admin_db_usage")return{data:{status:"ok",db_bytes:61000000,limit_bytes:524288000,auto_cleanup:true,tables:[{name:"audit_logs",bytes:9000000},{name:"cases",bytes:4000000},{name:"site_settings",bytes:2000000}]},error:null};
   if(n==="admin_cleanup_now")return{data:{status:"ok",attempts:120,sessions:14,audit:0,deleted:0},error:null};
   if(n==="get_courses")return{data:T.course_assignments.filter(r=>r.is_active&&r.year===a.p_year&&r.programme===a.p_programme&&(r.ptype||"Regular")===(a.p_type||"Regular")&&r.intake===a.p_intake&&r.level===a.p_level).map(r=>({assignment_id:r.id,course_id:r.course_id,code:r.code,name:r.name,semester:r.semester})),error:null};
@@ -622,13 +639,13 @@ async function init(){
   try{
     const [k, s] = await Promise.all([
       db.from("issue_categories").select("id,name,requires_explanation,sort_order").eq("is_active",true).order("sort_order"),
-      db.from("site_settings").select("key,value").eq("is_public",true)
+      db.from("site_settings").select("key,value").eq("is_public",true).not("key","like","bg_image_*").neq("key","hero_image")
     ]);
     if(k.error||s.error) throw (k.error||s.error);
     categories = k.data;
     s.data.forEach(r=>{ cfg[r.key]=r.value; });
     if(cfg.site_title) document.title=cfg.site_title;
-    setSlides([cfg.hero_image,cfg.bg_image_1,cfg.bg_image_2,cfg.bg_image_3,cfg.bg_image_4,cfg.bg_image_5,cfg.bg_image_6].filter(validImg));
+    setTimeout(loadSlides,1500);
     if(cfg.welcome_title) $("siteTitle").textContent=cfg.welcome_title;
     if(cfg.welcome_message) $("welcomeMsg").textContent=cfg.welcome_message;
     if(cfg.reporting_instructions) $("instructions").textContent=cfg.reporting_instructions;
@@ -824,7 +841,7 @@ async function website(){const v=$("v-site");const {data:s}=await db.from("site_
  sv.onclick=async()=>{const r=(k,val)=>({key:k,value:val,is_public:true,updated_by:me.id});
   const {error}=await db.from("site_settings").upsert([r("welcome_title",t.value),r("welcome_message",m.value),r("reporting_instructions",ins.value)]);
   note(msg,error?"Only the super administrator can change this.":"Saved. Refresh the public page to see it.",!error)};
- const tm=el("div"),cb=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),mfaCard(),...(me&&me.role==="super_admin"?[dbCard()]:[]),bgCard(s),qrCard(),el("h3",{textContent:"Website contacts"}),cb,el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
+ const tm=el("div"),cb=el("div");v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Welcome text"}),"Title",t,"Welcome message",m,"Instructions above the form",ins,sv,msg),mfaCard(),...(me&&me.role==="super_admin"?[dbCard(),alertCard()]:[]),bgCard(s),qrCard(),el("h3",{textContent:"Website contacts"}),cb,el("h3",{textContent:"Team (HOD, Administrator, Coordinators)"}),tm);
  await contactsEditor(cb);await teamEditor(tm)}
 async function teamEditor(box){const {data}=await db.from("team_members").select("*").order("sort_order").order("role_title");const m=el("div");
  const add=el("button",{className:"b g",textContent:"+ Add team member"});
@@ -833,7 +850,7 @@ async function teamEditor(box){const {data}=await db.from("team_members").select
   const img=el("img",{style:"width:90px;height:90px;border-radius:50%;object-fit:cover;background:var(--line)"});if(photo)img.src=photo;
   const ti=el("input",{type:"text",value:x.role_title,maxLength:100,placeholder:"Role e.g. Head of Department"}),na=el("input",{type:"text",value:x.full_name,maxLength:150,placeholder:"Full name"}),
    ms=el("textarea",{value:x.message||"",maxLength:400,placeholder:"Short message or phrase to show under the name (optional)",style:"width:100%"}),or=el("input",{type:"number",value:x.sort_order,style:"width:80px"}),fi=el("input",{type:"file",accept:"image/jpeg,image/png,image/webp"}),ac=el("input",{type:"checkbox",checked:x.is_active});
-  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{photo=await compressImage(f,190000,700);img.src=photo;note(m,"Photo chosen. Press Save.",true)}catch(e){fi.value="";note(m,"Could not use that picture. Please choose a JPG, PNG or WebP.")}};
+  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{photo=await compressImage(f,45000,480);img.src=photo;note(m,"Photo chosen. Press Save.",true)}catch(e){fi.value="";note(m,"Could not use that picture. Please choose a JPG, PNG or WebP.")}};
   const sv=el("button",{className:"b",textContent:"Save"});
   sv.onclick=async()=>{const {error}=await db.from("team_members").update({role_title:ti.value.trim(),full_name:na.value.trim(),photo,sort_order:+or.value||100,is_active:ac.checked,...(("message" in x)?{message:ms.value.trim()||null}:{})}).eq("id",x.id);note(m,error?"Could not save (photo over 200 KB or wrong role).":"Saved.",!error)};
   const rp=el("button",{className:"b g",textContent:"Remove photo"});rp.onclick=()=>{photo=null;img.removeAttribute("src")};
@@ -1038,6 +1055,38 @@ function compressImage(file,maxBytes,maxDim){return new Promise((res,rej)=>{if(!
   let W=img.width,H=img.height;const sc=Math.min(1,maxDim/Math.max(W,H));W=Math.round(W*sc);H=Math.round(H*sc);const c=document.createElement("canvas");let q=.85,out="";
   for(let i=0;i<14;i++){c.width=W;c.height=H;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);out=c.toDataURL("image/jpeg",q);if(out.length*.75<=maxBytes)break;if(q>.45)q-=.1;else{W=Math.round(W*.8);H=Math.round(H*.8)}}
   out.length*.75<=maxBytes?res(out):rej(new Error("big"))};img.src=fr.result};fr.readAsDataURL(file)})}
+function shrinkDataUrl(url,maxBytes,maxDim){return new Promise(res=>{const img=new Image();img.onerror=()=>res(null);img.onload=()=>{let W=img.width,H=img.height;const sc=Math.min(1,maxDim/Math.max(W,H));W=Math.round(W*sc);H=Math.round(H*sc);
+  const c=document.createElement("canvas");let q=.8,out="";for(let i=0;i<14;i++){c.width=W;c.height=H;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);out=c.toDataURL("image/jpeg",q);if(out.length*.75<=maxBytes)break;if(q>.4)q-=.1;else{W=Math.round(W*.8);H=Math.round(H*.8)}}
+  res(out.length*.75<=maxBytes?out:null)};img.src=url})}
+function shrinkBtn(msg,reload){const b=el("button",{className:"b g",textContent:"Shrink saved pictures"});
+ b.onclick=async()=>{b.disabled=true;note(msg,"Shrinking pictures... please wait.",true);let n=0,saved=0;
+  try{const keys=["hero_image","bg_image_1","bg_image_2","bg_image_3","bg_image_4","bg_image_5","bg_image_6"];const {data:ss}=await db.from("site_settings").select("key,value").in("key",keys);
+   for(const r of ss||[]){if(!validImg(r.value)||r.value.length*.75<=110000)continue;const o=await shrinkDataUrl(r.value,100000,1280);
+    if(o&&o.length<r.value.length){const {error}=await db.from("site_settings").upsert([{key:r.key,value:o,is_public:true,updated_by:me.id}]);if(!error){n++;saved+=r.value.length-o.length}}}
+   const {data:tm}=await db.from("team_members").select("id,photo");
+   for(const r of tm||[]){if(!r.photo||r.photo.length*.75<=60000)continue;const o=await shrinkDataUrl(r.photo,45000,480);
+    if(o&&o.length<r.photo.length){const {error}=await db.from("team_members").update({photo:o}).eq("id",r.id);if(!error){n++;saved+=r.photo.length-o.length}}}
+   note(msg,"Shrunk "+n+" picture(s), freed about "+Math.round(saved/1024*0.75)+" KB. The site now loads faster.",true)}catch(e){note(msg,"Could not shrink the pictures.")}
+  b.disabled=false;reload()};return b}
+function alertCard(){const box=el("div"),msg=el("div"),card=el("div",{className:"card"},el("h3",{textContent:"E-mail alerts for new reports"}),box,msg);
+ const load=async()=>{const {data,error}=await db.rpc("admin_get_alert_config");
+  if(error||!data||data.status!=="ok"){box.replaceChildren(el("div",{textContent:"Not available yet. Run ALERTS_AND_SPACE.sql in Supabase.",style:"color:var(--mute)"}));return}
+  const fld=(t,node)=>[el("div",{textContent:t,style:"font-weight:600;margin-top:6px"}),node];
+  const on=el("input",{type:"checkbox",checked:!!data.enabled,style:"width:auto"});
+  const prov=el("select",{style:"width:100%;margin:4px 0 8px"});[["brevo","Brevo (free, 300 e-mails a day, easiest)"],["resend","Resend (needs your own verified domain)"]].forEach(([v,t])=>prov.append(new Option(t,v)));prov.value=data.provider||"brevo";
+  const mk=(v,ph,type)=>el("input",{type:type||"text",value:v||"",placeholder:ph||"",maxLength:400,autocomplete:"off",style:"width:100%;margin:4px 0 8px"});
+  const from=mk(data.from,"alerts@yourmail.com (must be approved in the e-mail service)"),to=mk(data.emails,"admin1@mail.com, admin2@mail.com (empty = every admin account)"),key=mk("",data.has_key?"Key saved. Leave empty to keep it.":"Paste the service API key here","password");
+  const save=el("button",{className:"b",textContent:"Save"}),test=el("button",{className:"b g",textContent:"Send a test e-mail"}),now=el("button",{className:"b g",textContent:"Send pending alerts now"});
+  save.onclick=async()=>{const {data:d,error:e}=await db.rpc("admin_set_alert_config",{p_enabled:on.checked,p_provider:prov.value,p_from:from.value,p_emails:to.value,p_site_url:location.origin+location.pathname,p_api_key:key.value||null});
+   const bad=e||(d&&d.status==="error");note(msg,bad?((d&&d.message)||(e&&e.message)||"Could not save."):"Saved.",!bad);if(!bad)load()};
+  test.onclick=async()=>{note(msg,"Sending test...",true);const {data:d,error:e}=await db.rpc("admin_send_test_alert");
+   if(e||!d||d.status!=="ok"){note(msg,(d&&d.message)||(e&&e.message)||"Could not send.");return}
+   setTimeout(async()=>{const {data:r}=await db.rpc("admin_alert_last_result");const ok=r&&r.status_code>=200&&r.status_code<300;
+    note(msg,ok?"The e-mail service accepted the test. Check the inbox (and the spam folder).":"The e-mail service answered: "+((r&&(r.status_code||r.error))||"no answer yet")+" "+((r&&r.content)||""),!!ok)},4500)};
+  now.onclick=async()=>{const {data:d}=await db.rpc("admin_alert_send_now");note(msg,d&&d.status==="ok"?"Sent.":"Result: "+((d&&(d.status||d.message))||"no answer"),!!(d&&d.status==="ok"))};
+  box.replaceChildren(el("label",{style:"display:flex;gap:8px;align-items:center;font-weight:700"},on,"Send an e-mail when a new report is submitted"),...fld("E-mail service",prov),...fld("Sender address",from),...fld("Send alerts to",to),...fld("API key",key),
+   el("div",{className:"arow"},save,test,now),el("div",{textContent:"No student names or phone numbers are put in the e-mail. Alerts are grouped: at most one e-mail every 2 minutes."+(data.cron?"":" (Turn on pg_cron in Supabase for guaranteed grouping.)"),style:"color:var(--mute);font-size:.85rem;margin-top:6px"}))};
+ load();return card}
 function dbCard(){const box=el("div"),msg=el("div"),card=el("div",{className:"card"},el("h3",{textContent:"Database space (free plan: 500 MB)"}),box,msg);
  const load=async()=>{const {data,error}=await db.rpc("admin_db_usage");
   if(error||!data||data.status!=="ok"){box.replaceChildren(el("div",{textContent:"Not available yet. Run PROGRAMME_TYPE_AND_SPACE.sql in Supabase.",style:"color:var(--mute)"}));return}
@@ -1048,7 +1097,7 @@ function dbCard(){const box=el("div"),msg=el("div"),card=el("div",{className:"ca
   btn.onclick=async()=>{btn.disabled=true;const {data:r,error:e}=await db.rpc("admin_cleanup_now");btn.disabled=false;
    note(msg,e||!r?"Could not clean up.":"Cleaned: "+r.attempts+" old rate-limit rows, "+r.sessions+" expired sessions, "+r.audit+" old audit entries, "+r.deleted+" old deleted-report copies.",!(e||!r));load()};
   box.replaceChildren(el("div",{textContent:mb(used)+" used of "+mb(lim)+" ("+pct+"%)",style:"font-weight:700"}),bar,rows,
-   el("div",{textContent:"Automatic nightly cleanup: "+(data.auto_cleanup?"ON":"OFF (turn on pg_cron in Supabase > Database > Extensions, then rerun the SQL)"),style:"margin:8px 0"}),btn)};
+   el("div",{textContent:"Automatic nightly cleanup: "+(data.auto_cleanup?"ON":"OFF (turn on pg_cron in Supabase > Database > Extensions, then rerun the SQL)"),style:"margin:8px 0"}),el("div",{className:"arow"},btn,shrinkBtn(msg,load)))};
  load();return card}
 function bgCard(s){const keys=[1,2,3,4,5,6].map(i=>"bg_image_"+i),cur={},msg=el("div"),grid=el("div",{className:"f"});
  keys.forEach(k=>{const r=(s||[]).find(x=>x.key===k);cur[k]=r&&typeof r.value==="string"?r.value:""});
@@ -1057,7 +1106,7 @@ function bgCard(s){const keys=[1,2,3,4,5,6].map(i=>"bg_image_"+i),cur={},msg=el(
  const draw=()=>{grid.replaceChildren();keys.forEach((k,i)=>{const v=cur[k],th=el("div",{style:"flex:1 1 150px;text-align:center"});
   th.append(v?el("img",{src:v,alt:"",style:"width:100%;height:90px;object-fit:cover;border-radius:8px"}):el("div",{textContent:"Empty slot "+(i+1),style:"height:90px;border:1px dashed var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--mute)"}));
   const fi=el("input",{type:"file",accept:"image/jpeg,image/png,image/webp",style:"margin-top:6px"});
-  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{note(msg,"Preparing picture...",true);const d=await compressImage(f,190000,1920);if(await save(k,d)){note(msg,"Picture "+(i+1)+" saved. It now shows on the whole website.",true);draw()}}catch(e){note(msg,"Could not use that picture. Please choose a JPG, PNG or WebP.")}};
+  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{note(msg,"Preparing picture...",true);const d=await compressImage(f,100000,1280);if(await save(k,d)){note(msg,"Picture "+(i+1)+" saved. It now shows on the whole website.",true);draw()}}catch(e){note(msg,"Could not use that picture. Please choose a JPG, PNG or WebP.")}};
   th.append(fi);if(v){const rm=el("button",{className:"b g",textContent:"Remove",style:"margin-top:6px"});rm.onclick=async()=>{if(await save(k,"")){note(msg,"Picture removed.",true);draw()}};th.append(rm)}
   grid.append(th)})};
  draw();
@@ -1071,10 +1120,14 @@ function qrCard(){const c=el("div",{className:"card"},el("h3",{textContent:"QR c
 function showAuthPop(){$("authPop").hidden=false;setTimeout(()=>$("popLogin").focus(),30)}
 function hideAuthPop(){$("authPop").hidden=true}
 function chooseAuth(mode){hideAuthPop();$("authBox").hidden=false;$(mode==="reg"?"aReg":"aLogin").click();regOpened=Date.now();setTimeout(()=>{const f=$(mode==="reg"?"rId":"lId");if(f)f.focus()},60)}
+$("liteBtn").onclick=()=>{const on=!document.body.classList.contains("lite");setLite(on,true);if(on)setSlides([]);else loadSlides()};
 $("popLogin").onclick=()=>chooseAuth("login");$("popReg").onclick=()=>chooseAuth("reg");
 $("popClose").onclick=()=>{hideAuthPop();goHome()};
 $("authPop").addEventListener("click",e=>{if(e.target===$("authPop")){hideAuthPop();goHome()}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("authPop").hidden){hideAuthPop();goHome()}});
+async function loadSlides(){if(document.body.classList.contains("lite"))return;
+ try{const {data}=await db.from("site_settings").select("key,value").eq("is_public",true).or("key.like.bg_image_*,key.eq.hero_image");
+  const m={};(data||[]).forEach(r=>{m[r.key]=r.value});setSlides([m.hero_image,m.bg_image_1,m.bg_image_2,m.bg_image_3,m.bg_image_4,m.bg_image_5,m.bg_image_6].filter(validImg))}catch(e){}}
 async function openPortal(w){formOpened=Date.now();regOpened=Date.now();document.body.classList.add("inportal");$("home").hidden=true;$("portal").hidden=false;window.scrollTo(0,0);afterLogin=w==="mine"?"mine":"report";await restoreSession();ptab(w)}
 function goHome(){document.body.classList.remove("inportal");$("portal").hidden=true;$("home").hidden=false;window.scrollTo(0,0)}
 let idleT;const idleReset=()=>{clearTimeout(idleT);if(me)idleT=setTimeout(async()=>{await db.auth.signOut();location.reload()},15*60*1000)};
