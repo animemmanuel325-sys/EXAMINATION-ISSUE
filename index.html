@@ -1185,7 +1185,9 @@ $("staffLink").onclick=async()=>{$("pub").hidden=true;$("adm").hidden=false;awai
 $("back").onclick=()=>{$("adm").hidden=true;$("pub").hidden=false};
 
 /* ---- Pay-to-reset password (Paystack) ---- */
-const payFn=async body=>{const {data,error}=await db.functions.invoke("reset-pay",{body});if(error&&!data){const c=error.context&&error.context.status;return{status:"error",message:"Could not reach the payment service"+(c?" (error "+c+")":" (no connection or blocked)")+". Try again."}};return data||{status:"error",message:"No response."}};
+const payFn=async body=>{const {data,error}=await db.functions.invoke("reset-pay",{body});if(!error)return data||{status:"error",message:"No response."};
+ try{const j=await error.context.json();if(j&&j.message)return j}catch(e){}
+ const c=error.context&&error.context.status;return{status:"error",message:"Could not reach the payment service"+(c?" (error "+c+")":" (no connection or blocked)")+". Try again."}};
 function payDialog(title,...kids){document.getElementById("payDlg")&&document.getElementById("payDlg").remove();
  const close=el("button",{type:"button",className:"b g",textContent:"Close"}),ov=el("div",{id:"payDlg",style:"position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:60;padding:10px"},
   el("div",{className:"card",style:"width:min(96vw,460px);max-height:92vh;overflow:auto"},el("h3",{textContent:title}),...kids,el("div",{className:"arow",style:"margin-top:10px"},close)));
