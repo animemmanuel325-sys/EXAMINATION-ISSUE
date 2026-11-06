@@ -237,8 +237,8 @@ body.lite *,body.lite *::before,body.lite *::after{animation:none!important;tran
       <input id="lHp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;height:0;width:0;opacity:0">
       <div id="lMsg"></div>
       <button class="go" id="lBtn" type="submit">Log in</button>
-      <div class="msg warn" id="forgotBox" style="margin-top:14px"><b>Forgot your password?</b><br>Contact your course rep and pay <b>10 cedis</b>, or contact <a href="tel:0209684674" style="font-weight:700">0209684674</a> (<a href="https://wa.me/233209684674" target="_blank" rel="noopener noreferrer" style="font-weight:700">WhatsApp</a>).</div>
-      <button type="button" class="b" id="payResetBtn" style="margin-top:10px;width:100%">Pay GHS 10 with Mobile Money and reset my password now</button>
+      <div class="msg warn" id="forgotBox" style="display:none"><b>Forgot your password?</b><br>Contact your course rep and pay <b>10 cedis</b>, or contact <a href="tel:0209684674" style="font-weight:700">0209684674</a> (<a href="https://wa.me/233209684674" target="_blank" rel="noopener noreferrer" style="font-weight:700">WhatsApp</a>).</div>
+      <button type="button" class="b" id="payResetBtn" style="margin-top:14px;width:100%">Pay GHS 10 with Mobile Money and reset my password now</button>
     </form>
     <form id="regF" autocomplete="off" novalidate hidden>
       <label for="rId">Student ID (index number)</label><input id="rId" maxlength="30" autocapitalize="characters" required>
@@ -1193,26 +1193,29 @@ function payDialog(title,...kids){document.getElementById("payDlg")&&document.ge
   el("div",{className:"card",style:"width:min(96vw,460px);max-height:92vh;overflow:auto"},el("h3",{textContent:title}),...kids,el("div",{className:"arow",style:"margin-top:10px"},close)));
  close.onclick=()=>ov.remove();document.body.append(ov);return ov}
 $("payResetBtn").onclick=()=>{
- const idI=el("input",{type:"text",maxLength:40,placeholder:"e.g. your student ID",autocomplete:"off"}),phI=el("input",{type:"tel",maxLength:20,placeholder:"Phone number you registered with"}),m=el("div"),
+ const idI=el("input",{type:"text",maxLength:40,placeholder:"e.g. PUNS/23110032",autocomplete:"off",autocapitalize:"characters"}),m=el("div"),
   go=el("button",{type:"button",className:"b",textContent:"Pay GHS 10 now"});
- go.onclick=async()=>{if(!idI.value.trim()||!phI.value.trim())return note(m,"Enter your student ID and phone number.");
-  go.disabled=true;note(m,"Starting payment...",true);const r=await payFn({action:"init",index:idI.value.trim(),phone:phI.value.trim()});
+ go.onclick=async()=>{if(!idI.value.trim())return note(m,"Enter your student ID.");
+  go.disabled=true;note(m,"Starting payment...",true);const r=await payFn({action:"init",index:idI.value.trim()});
   if(r.status==="ok"&&r.url){location.href=r.url;return}go.disabled=false;note(m,r.message||"Could not start the payment.")};
- payDialog("Reset password online",el("div",{textContent:"Pay GHS 10 with Mobile Money (Telecel Cash, MTN, AirtelTigo). As soon as the payment is confirmed you will be able to choose a new password here.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID",idI,"Phone number",phI,m,el("div",{className:"arow"},go))};
+ payDialog("Fix my account online",el("div",{textContent:"Pay GHS 10 with Mobile Money (Telecel Cash, MTN, AirtelTigo). When the payment is confirmed you can set a new password, correct your admission year, and change your programme type (Regular, Assess or Top-Up). One payment covers all of them.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID (must match your account)",idI,m,el("div",{className:"arow"},go))};
 (async()=>{const q=new URLSearchParams(location.search),ref=q.get("reference")||q.get("trxref");if(!ref||!/^RST-/.test(ref))return;
  history.replaceState(null,"",location.pathname);
- const m=el("div"),box=el("div");payDialog("Confirming your payment",box,m);note(m,"Checking your payment...",true);
+ const m=el("div"),box=el("div");payDialog("Payment received",box,m);note(m,"Checking your payment...",true);
  const r=await payFn({action:"verify",reference:ref});
  if(r.status!=="ok"){return note(m,r.message||"Payment not confirmed.")}
- note(m,"Payment confirmed for "+r.index+". Choose a new password.",true);
- const p1=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"New password (8+ characters, letters and numbers)"}),p2=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"Type it again"}),
-  sv=el("button",{type:"button",className:"b",textContent:"Save new password"});
- sv.onclick=async()=>{if(p1.value!==p2.value)return note(m,"The two passwords do not match.");
-  if(p1.value.length<8||!/[A-Za-z]/.test(p1.value)||!/[0-9]/.test(p1.value))return note(m,"Password must be 8 or more characters with letters and numbers.");
-  sv.disabled=true;const x=await payFn({action:"complete",reference:ref,token:r.token,password:p1.value});
-  if(x.status==="ok"){box.replaceChildren(el("div",{textContent:"Your password has been changed. You can now log in with your student ID and the new password.",style:"font-weight:600"}));note(m,"")}
-  else{sv.disabled=false;note(m,x.message||"Could not change the password.")}};
- box.replaceChildren(p1,p2,sv)})();
+ note(m,"Payment confirmed for "+r.index+". Change what you need, then press Save.",true);
+ const pr=r.profile||{},p1=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"New password (leave empty to keep the old one)"}),p2=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"Type the new password again"}),
+  ys=el("select",{},new Option("Keep as it is",""),...[...Array(18)].map((_,i)=>new Option(2023+i,2023+i))),ts=el("select",{},new Option("Keep as it is",""),new Option("Regular","Regular"),new Option("Assess","Assess"),new Option("Top-Up","Top-Up")),
+  sv=el("button",{type:"button",className:"b",textContent:"Save my changes"});
+ if(pr.year)ys.value=String(pr.year);if(pr.type)ts.value=pr.type;
+ sv.onclick=async()=>{const pw=p1.value;if(pw||p2.value){if(pw!==p2.value)return note(m,"The two passwords do not match.");
+   if(pw.length<8||!/[A-Za-z]/.test(pw)||!/[0-9]/.test(pw))return note(m,"Password must be 8 or more characters with letters and numbers.")}
+  if(!pw&&!ys.value&&!ts.value)return note(m,"Choose at least one thing to change.");
+  sv.disabled=true;const x=await payFn({action:"complete",reference:ref,token:r.token,password:pw,year:ys.value,type:ts.value});
+  if(x.status==="ok"){box.replaceChildren(el("div",{textContent:"Done. Your changes are saved."+(pw?" Log in with your student ID and the new password.":" Log in as usual."),style:"font-weight:600"}));note(m,"")}
+  else{sv.disabled=false;note(m,x.message||"Could not save your changes.")}};
+ box.replaceChildren("New password (optional)",p1,p2,"Admission year",ys,"Programme type",ts,sv)})();
 init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE")){loadTeam();loadContacts()}});
 if(location.hash==="#admin")$("staffLink").click();
 // scroll reveal + background parallax (whole page)
