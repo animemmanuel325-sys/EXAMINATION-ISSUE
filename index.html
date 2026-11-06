@@ -519,22 +519,41 @@ function drawRows(list){const wrap=$("tbWrap");wrap.replaceChildren();const by={
    n++;const tr=el("tr",{className:"r"},...[n,r.full_name,r.index_number,r.student_type||"Not stated","L"+r.affected_level+(r.affected_semester?" S"+r.affected_semester:""),r.contact||"",r.category_name,r.status_name,r.reference_number].map(x=>el("td",{textContent:x})));tr.onclick=()=>detail(r);t.append(tr)});
   wrap.append(el("section",{className:"batch"},el("h3",{textContent:bl+"  ("+rs.length+" case(s), "+new Set(rs.map(x=>x.index_number)).size+" student(s)) | "+typeCounts(rs)}),el("div",{className:"wrap"},t)))})}
 $("apply").onclick=loadCases;
-function pickBatch(title,go){if(!rows.length)return note($("cm"),"No cases to export. Press Search first.");
+function pickBatch(title,go){
  const mk=(first,opts)=>{const x=el("select",{style:"width:100%;margin:4px 0 10px"});x.append(new Option(first,""));opts.forEach(o=>x.append(new Option(o[1],o[0])));return x};
  const yrs=[...new Set(rows.map(r=>r.admission_year))].sort();
  const sy=mk("All years",yrs.map(y=>[String(y),"Year "+y])),sp=mk("Both programmes (Nursing and Midwifery)",[["Nursing","Nursing"],["Midwifery","Midwifery"]]),si=mk("Both intakes (January and September)",[["January","January intake"],["September","September intake"]]),sc=mk("All courses (shown course by course)",[]),st=mk("All programme types",[["Regular","Regular"],["Assess","Assess"],["Top-Up","Top-Up"],["Not stated","Not stated"]]);
  const info=el("div",{style:"margin:6px 0 10px;color:var(--mute)"});
  const sub=()=>rows.filter(r=>(!sy.value||String(r.admission_year)===sy.value)&&(!sp.value||r.programme===sp.value)&&(!si.value||r.intake===si.value)&&(!st.value||r.student_type===st.value));
  const fin=()=>sub().filter(r=>!sc.value||r.course_name===sc.value);
- const cnt=()=>{info.textContent=fin().length+" case(s) will be included."};
+ const sm=el("select",{style:"width:100%;margin:4px 0 10px"});sm.append(new Option("Everyone (choose the filters below)","all"),new Option("One student: all of their reports","one"));
+ const ix=el("input",{type:"text",placeholder:"Student index number, e.g. NMS/2024/101",maxLength:30,autocapitalize:"characters",style:"width:100%;margin:4px 0 10px"});
+ const oneBox=el("div",{hidden:true},"Student index number",ix);
+ const allBox=el("div",{},"Year",sy,"Programme",sp,"Intake",si,"Programme type",st,"Course",sc);
+ const cnt=()=>{info.textContent=sm.value==="one"?"Every report of this student, from all batches, will be included.":(rows.length?fin().length+" case(s) will be included.":"Nothing to export yet. Press Search first.")};
  const fillC=()=>{const cur=sc.value,cs=[...new Set(sub().map(r=>r.course_name))].sort();sc.replaceChildren(new Option("All courses (shown course by course)",""));cs.forEach(c=>sc.append(new Option(c,c)));if(cs.includes(cur))sc.value=cur;cnt()};
  sy.onchange=fillC;sp.onchange=fillC;si.onchange=fillC;st.onchange=fillC;sc.onchange=cnt;fillC();
+ sm.onchange=()=>{oneBox.hidden=sm.value!=="one";allBox.hidden=sm.value==="one";cnt();if(sm.value==="one")ix.focus()};
  const ok=el("button",{className:"b",textContent:title}),no=el("button",{className:"b g",textContent:"Cancel"});
  const ov=el("div",{className:"noprint",id:"batchDlg",style:"position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50"},
-  el("div",{className:"card",style:"width:min(92vw,400px)"},el("h3",{textContent:"What do you want?"}),"Year",sy,"Programme",sp,"Intake",si,"Programme type",st,"Course",sc,info,el("div",{className:"arow"},ok,no)));
+  el("div",{className:"card",style:"width:min(92vw,400px);max-height:92vh;overflow:auto"},el("h3",{textContent:"What do you want?"}),"Download",sm,oneBox,allBox,info,el("div",{className:"arow"},ok,no)));
  no.onclick=()=>ov.remove();
- ok.onclick=()=>{const f=fin();if(!f.length)return;const lab=[sy.value||"All years",sp.value||"Both programmes",si.value||"Both intakes",st.value||"All types",sc.value||"All courses"].join(" ");ov.remove();go(f,lab)};
+ ix.addEventListener("keydown",e=>{if(e.key==="Enter")ok.click()});
+ ok.onclick=async()=>{
+  if(sm.value==="one"){const idx=ix.value.trim().toUpperCase();
+   if(!/^[A-Z0-9\/-]{4,30}$/.test(idx)){info.textContent="Please enter a valid index number.";return}
+   ok.disabled=true;info.textContent="Searching...";
+   const {data,error}=await db.from("v_cases_full").select("*").eq("index_number",idx).order("admission_year").order("intake").order("course_code",{nullsFirst:false}).order("course_name").order("affected_level").limit(2000);
+   ok.disabled=false;
+   if(error){info.textContent="Could not search. Please try again.";return}
+   if(!data||!data.length){info.textContent="No reports found for index number "+idx+".";return}
+   const X=await extrasMap();
+   data.forEach(r=>{const e=X[String(r.index_number).toUpperCase()]||{};r.student_type=e.student_type||"Not stated";if(e.intake_year){r.admission_year=e.intake_year;if(r.batch_label)r.batch_label=String(r.batch_label).replace(/^\d{4}/,e.intake_year)}});
+   ov.remove();go(data,"Student "+idx);return}
+  const f=fin();if(!f.length){cnt();return}
+  const lab=[sy.value||"All years",sp.value||"Both programmes",si.value||"Both intakes",st.value||"All types",sc.value||"All courses"].join(" ");ov.remove();go(f,lab)};
  document.body.append(ov)}
+
 $("prt").onclick=()=>pickBatch("Print / Save as PDF",(sub,lab)=>{const f=[["fy","Year"],["fp","Programme"],["fi","Intake"],["ftype","Type"],["fc","Course"],["fl","Level"],["fs","Semester"],["fk","Issue"],["ft","Status"]].filter(([i])=>$(i).value).map(([i,l])=>l+": "+$(i).selectedOptions[0].text).join(", ")||"None";
  $("ph").replaceChildren(el("h2",{textContent:"EXAMINATION ISSUES REPORT"}),el("div",{textContent:"Batch: "+lab+" | Other filters: "+f+" | Generated: "+new Date().toLocaleString()+" | "+sub.length+" case(s)"}));
  drawRows(sub);const back=()=>{drawRows(rows);$("ph").replaceChildren();window.removeEventListener("afterprint",back)};window.addEventListener("afterprint",back);window.print()});
