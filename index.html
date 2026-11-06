@@ -342,7 +342,7 @@ body.lite *,body.lite *::before,body.lite *::after{animation:none!important;tran
   <select id="fc"></select><select id="fl"><option value="">All levels</option><option>100</option><option>200</option><option>300</option><option>400</option></select>
   <select id="fs"><option value="">All semesters</option><option value="1">First Semester</option><option value="2">Second Semester</option></select>
   <select id="fk"></select><select id="ft"></select></div>
-  <button class="b" id="apply">Search</button> <button class="b g" id="prt">Print / Save as PDF</button> <button class="b g" id="wab">Message students (WhatsApp)</button> <button class="b g" id="xls">Download Excel</button> <button class="b g" id="csv">Export CSV</button> <span id="cnt"></span><div id="cm"></div></div>
+  <button class="b" id="apply">Search</button> <button class="b g" id="prt">Print / Save as PDF</button> <button class="b g" id="wab">Message students (WhatsApp)</button> <button class="b g" id="bulk">Update status for all shown</button> <button class="b g" id="xls">Download Excel</button> <button class="b g" id="csv">Export CSV</button> <span id="cnt"></span><div id="cm"></div></div>
  <div class="card"><div id="ph"></div><div id="tbWrap"></div></div>
  <div id="detail" class="card" hidden></div>
 </section>
@@ -515,10 +515,32 @@ function drawRows(list){const wrap=$("tbWrap");wrap.replaceChildren();const by={
   const ck=r=>(r.course_code?r.course_code+" - ":"")+r.course_name;
   const ord=[...new Set(rs.map(ck))],TR=r=>{const i=TRANK.indexOf(r.student_type);return i<0?9:i};rs.sort((a,b)=>ord.indexOf(ck(a))-ord.indexOf(ck(b))||TR(a)-TR(b));
   const t=el("table",{},el("tr",{},...["No.","Student","Index","Type","Level","Contact","Issue","Status","Reference"].map(h=>el("th",{textContent:h}))));let g="",n=0;
-  rs.forEach(r=>{const key=ck(r);if(key!==g){g=key;n=0;t.append(el("tr",{className:"gh"},el("td",{colSpan:9,textContent:"Course: "+key+"  ("+rs.filter(x=>ck(x)===key).length+" student(s): "+typeCounts(rs.filter(x=>ck(x)===key))+")"})))}
+  rs.forEach(r=>{const key=ck(r);if(key!==g){g=key;n=0;const grp=rs.filter(x=>ck(x)===key),ub=el("button",{className:"b g noprint",textContent:"Update all "+grp.length,style:"margin-left:10px;padding:2px 10px"});ub.onclick=e=>{e.stopPropagation();bulkStatus(grp,bl+" | "+key)};t.append(el("tr",{className:"gh"},el("td",{colSpan:9},"Course: "+key+"  ("+grp.length+" student(s): "+typeCounts(grp)+")",ub)))}
    n++;const tr=el("tr",{className:"r"},...[n,r.full_name,r.index_number,r.student_type||"Not stated","L"+r.affected_level+(r.affected_semester?" S"+r.affected_semester:""),r.contact||"",r.category_name,r.status_name,r.reference_number].map(x=>el("td",{textContent:x})));tr.onclick=()=>detail(r);t.append(tr)});
   wrap.append(el("section",{className:"batch"},el("h3",{textContent:bl+"  ("+rs.length+" case(s), "+new Set(rs.map(x=>x.index_number)).size+" student(s)) | "+typeCounts(rs)}),el("div",{className:"wrap"},t)))})}
 $("apply").onclick=loadCases;
+function bulkStatus(list,label){
+ if(!me||me.role==="viewer")return note($("cm"),"View-only role.");
+ if(!list.length)return note($("cm"),"No cases to update. Press Search first.");
+ const sel=el("select");lk.sts.filter(x=>x.is_active).forEach(x=>sel.appendChild(new Option(x.name,x.id)));
+ const ta=el("textarea",{placeholder:"Optional internal note added to every case (students never see this)",maxLength:4000,style:"width:100%"}),msg=el("div");
+ const go=el("button",{className:"b",textContent:"Update "+list.length+" case(s)"}),cancel=el("button",{className:"b g",textContent:"Cancel"});
+ const ov=el("div",{className:"noprint",style:"position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:10px"},
+  el("div",{className:"card",style:"width:min(96vw,520px);max-height:92vh;overflow:auto"},el("h3",{textContent:"Update status for a whole group"}),
+   el("div",{textContent:label+" | "+list.length+" case(s), "+new Set(list.map(x=>x.index_number)).size+" student(s)",style:"font-weight:600;margin-bottom:8px"}),
+   "New status",sel,ta,msg,el("div",{className:"arow"},go,cancel)));
+ cancel.onclick=()=>ov.remove();
+ go.onclick=async()=>{const nm0=sel.selectedOptions[0].text;if(!confirm("Set the status of "+list.length+" case(s) to \""+nm0+"\"?"))return;
+  go.disabled=true;let ok=0,bad=0;const noteText=ta.value.trim();
+  for(let i=0;i<list.length;i+=10){await Promise.all(list.slice(i,i+10).map(async r=>{
+    const {error}=await db.from("cases").update({status_id:sel.value}).eq("id",r.id);
+    if(error){bad++;return}ok++;
+    if(noteText)await db.from("case_notes").insert({case_id:r.id,author_id:me.id,note:noteText})}));
+   note(msg,"Working... "+Math.min(i+10,list.length)+" of "+list.length,true)}
+  note(msg,"Finished: "+ok+" updated"+(bad?", "+bad+" failed (check your role)":"")+".",!bad);
+  go.hidden=true;cancel.textContent="Close";loadCases()};
+ document.body.append(ov)}
+$("bulk").onclick=()=>bulkStatus(rows,"All cases currently shown (use the filters above to choose a course or batch)");
 function pickBatch(title,go){
  const mk=(first,opts)=>{const x=el("select",{style:"width:100%;margin:4px 0 10px"});x.append(new Option(first,""));opts.forEach(o=>x.append(new Option(o[1],o[0])));return x};
  const yrs=[...new Set(rows.map(r=>r.admission_year))].sort();
