@@ -238,6 +238,7 @@ body.lite *,body.lite *::before,body.lite *::after{animation:none!important;tran
       <div id="lMsg"></div>
       <button class="go" id="lBtn" type="submit">Log in</button>
       <div class="msg warn" id="forgotBox" style="margin-top:14px"><b>Forgot your password?</b><br>Contact your course rep and pay <b>10 cedis</b>, or contact <a href="tel:0209684674" style="font-weight:700">0209684674</a> (<a href="https://wa.me/233209684674" target="_blank" rel="noopener noreferrer" style="font-weight:700">WhatsApp</a>).</div>
+      <button type="button" class="b" id="payResetBtn" style="margin-top:10px;width:100%">Pay GHS 10 with Mobile Money and reset my password now</button>
     </form>
     <form id="regF" autocomplete="off" novalidate hidden>
       <label for="rId">Student ID (index number)</label><input id="rId" maxlength="30" autocapitalize="characters" required>
@@ -1182,6 +1183,34 @@ $("staffLink").onclick=async()=>{$("pub").hidden=true;$("adm").hidden=false;awai
  if(!$("login").hidden&&!$("lm").textContent){const r=await db.from("site_settings").select("key").eq("is_public",true).limit(1);
   note($("lm"),r.error?"Cannot reach the database ("+SUPABASE_URL.replace("https://","")+"): "+r.error.message+". Check that the Supabase project is not paused, and open "+SUPABASE_URL+"/rest/v1/ in a new tab as a test.":(DEMO?"Demo mode: type any email and any password to enter.":"Database connection OK. Enter your admin email and password."),!r.error)}};
 $("back").onclick=()=>{$("adm").hidden=true;$("pub").hidden=false};
+
+/* ---- Pay-to-reset password (Paystack) ---- */
+const payFn=async body=>{const {data,error}=await db.functions.invoke("reset-pay",{body});if(error&&!data)return{status:"error",message:"Could not reach the payment service. Try again."};return data||{status:"error",message:"No response."}};
+function payDialog(title,...kids){document.getElementById("payDlg")&&document.getElementById("payDlg").remove();
+ const close=el("button",{type:"button",className:"b g",textContent:"Close"}),ov=el("div",{id:"payDlg",style:"position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:60;padding:10px"},
+  el("div",{className:"card",style:"width:min(96vw,460px);max-height:92vh;overflow:auto"},el("h3",{textContent:title}),...kids,el("div",{className:"arow",style:"margin-top:10px"},close)));
+ close.onclick=()=>ov.remove();document.body.append(ov);return ov}
+$("payResetBtn").onclick=()=>{
+ const idI=el("input",{type:"text",maxLength:40,placeholder:"e.g. your student ID",autocomplete:"off"}),phI=el("input",{type:"tel",maxLength:20,placeholder:"Phone number you registered with"}),m=el("div"),
+  go=el("button",{type:"button",className:"b",textContent:"Pay GHS 10 now"});
+ go.onclick=async()=>{if(!idI.value.trim()||!phI.value.trim())return note(m,"Enter your student ID and phone number.");
+  go.disabled=true;note(m,"Starting payment...",true);const r=await payFn({action:"init",index:idI.value.trim(),phone:phI.value.trim()});
+  if(r.status==="ok"&&r.url){location.href=r.url;return}go.disabled=false;note(m,r.message||"Could not start the payment.")};
+ payDialog("Reset password online",el("div",{textContent:"Pay GHS 10 with Mobile Money (Telecel Cash, MTN, AirtelTigo). As soon as the payment is confirmed you will be able to choose a new password here.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID",idI,"Phone number",phI,m,el("div",{className:"arow"},go))};
+(async()=>{const q=new URLSearchParams(location.search),ref=q.get("reference")||q.get("trxref");if(!ref||!/^RST-/.test(ref))return;
+ history.replaceState(null,"",location.pathname);
+ const m=el("div"),box=el("div");payDialog("Confirming your payment",box,m);note(m,"Checking your payment...",true);
+ const r=await payFn({action:"verify",reference:ref});
+ if(r.status!=="ok"){return note(m,r.message||"Payment not confirmed.")}
+ note(m,"Payment confirmed for "+r.index+". Choose a new password.",true);
+ const p1=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"New password (8+ characters, letters and numbers)"}),p2=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"Type it again"}),
+  sv=el("button",{type:"button",className:"b",textContent:"Save new password"});
+ sv.onclick=async()=>{if(p1.value!==p2.value)return note(m,"The two passwords do not match.");
+  if(p1.value.length<8||!/[A-Za-z]/.test(p1.value)||!/[0-9]/.test(p1.value))return note(m,"Password must be 8 or more characters with letters and numbers.");
+  sv.disabled=true;const x=await payFn({action:"complete",reference:ref,token:r.token,password:p1.value});
+  if(x.status==="ok"){box.replaceChildren(el("div",{textContent:"Your password has been changed. You can now log in with your student ID and the new password.",style:"font-weight:600"}));note(m,"")}
+  else{sv.disabled=false;note(m,x.message||"Could not change the password.")}};
+ box.replaceChildren(p1,p2,sv)})();
 init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE")){loadTeam();loadContacts()}});
 if(location.hash==="#admin")$("staffLink").click();
 // scroll reveal + background parallax (whole page)
