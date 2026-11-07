@@ -1187,7 +1187,9 @@ $("back").onclick=()=>{$("adm").hidden=true;$("pub").hidden=false};
 /* ---- Pay-to-reset password (Paystack) ---- */
 const payFn=async body=>{const {data,error}=await db.functions.invoke("reset-pay",{body});if(!error)return data||{status:"error",message:"No response."};
  try{const j=await error.context.json();if(j&&j.message)return j}catch(e){}
- const c=error.context&&error.context.status;return{status:"error",message:"Could not reach the payment service"+(c?" (error "+c+")":" (no connection or blocked)")+". Try again."}};
+ const c=error.context&&error.context.status;if(c)return{status:"error",message:"The payment service answered with error "+c+". Try again."};
+ try{await fetch(SUPABASE_URL+"/functions/v1/reset-pay",{method:"GET",mode:"no-cors"})}catch(e){return{status:"error",message:"Your phone could not reach the server. Check your internet and try again."}}
+ return{status:"error",message:"SETUP PROBLEM: the server was reached but it refused the request. In Supabase open Edge Functions, then reset-pay, then Details, and switch OFF 'Verify JWT'. Also check the function is named exactly reset-pay and is Active."}};
 function payDialog(title,...kids){document.getElementById("payDlg")&&document.getElementById("payDlg").remove();
  const close=el("button",{type:"button",className:"b g",textContent:"Close"}),ov=el("div",{id:"payDlg",style:"position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:60;padding:10px"},
   el("div",{className:"card",style:"width:min(96vw,460px);max-height:92vh;overflow:auto"},el("h3",{textContent:title}),...kids,el("div",{className:"arow",style:"margin-top:10px"},close)));
