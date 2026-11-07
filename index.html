@@ -238,7 +238,7 @@ body.lite *,body.lite *::before,body.lite *::after{animation:none!important;tran
       <div id="lMsg"></div>
       <button class="go" id="lBtn" type="submit">Log in</button>
       <div class="msg warn" id="forgotBox" style="display:none"><b>Forgot your password?</b><br>Contact your course rep and pay <b>10 cedis</b>, or contact <a href="tel:0209684674" style="font-weight:700">0209684674</a> (<a href="https://wa.me/233209684674" target="_blank" rel="noopener noreferrer" style="font-weight:700">WhatsApp</a>).</div>
-      <button type="button" class="b" id="payResetBtn" style="margin-top:14px;width:100%">Pay GHS 10 with Mobile Money and reset my password now</button>
+      <button type="button" class="b" id="payResetBtn" style="margin-top:14px;width:100%">Forgot password?</button>
     </form>
     <form id="regF" autocomplete="off" novalidate hidden>
       <label for="rId">Student ID (index number)</label><input id="rId" maxlength="30" autocapitalize="characters" required>
@@ -1194,13 +1194,13 @@ function payDialog(title,...kids){document.getElementById("payDlg")&&document.ge
  const close=el("button",{type:"button",className:"b g",textContent:"Close"}),ov=el("div",{id:"payDlg",style:"position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:60;padding:10px"},
   el("div",{className:"card",style:"width:min(96vw,460px);max-height:92vh;overflow:auto"},el("h3",{textContent:title}),...kids,el("div",{className:"arow",style:"margin-top:10px"},close)));
  close.onclick=()=>ov.remove();document.body.append(ov);return ov}
-$("payResetBtn").onclick=()=>{
+const openPay=()=>{
  const idI=el("input",{type:"text",maxLength:40,placeholder:"e.g. PUNS/23110032",autocomplete:"off",autocapitalize:"characters"}),m=el("div"),
   go=el("button",{type:"button",className:"b",textContent:"Pay GHS 10 now"});
  go.onclick=async()=>{if(!idI.value.trim())return note(m,"Enter your student ID.");
-  go.disabled=true;note(m,"Starting payment...",true);const r=await payFn({action:"init",index:idI.value.trim()});
+  go.disabled=true;note(m,"Starting payment...",true);const r=await payFn({action:"init",index:idI.value.trim(),return_url:location.origin+location.pathname});
   if(r.status==="ok"&&r.url){if(r.reference)rstSave(r.reference);location.href=r.url;return}go.disabled=false;note(m,r.message||"Could not start the payment.")};
- payDialog("Fix my account online",el("div",{textContent:"Pay GHS 10 with Mobile Money (Telecel Cash, MTN, AirtelTigo). When the payment is confirmed you can set a new password, correct your admission year, and change your programme type (Regular, Assess or Top-Up). One payment covers all of them.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID (must match your account)",idI,m,el("div",{className:"arow"},go))};
+ payDialog("Fix my account online",el("div",{textContent:"Pay GHS 10 with Mobile Money (Telecel Cash, MTN, AirtelTigo). When the payment is confirmed you can set a new password, correct your admission year, and change your programme type (Regular, Assess or Top-Up). One payment covers all of them, but it can be used only once.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID (must match your account)",idI,m,el("div",{className:"arow"},go))};
 const rstSave=r=>{try{localStorage.setItem("rstRef",r)}catch(e){}},rstDrop=()=>{try{localStorage.removeItem("rstRef")}catch(e){}};
 function resumeReset(ref,pre){
  const m=el("div"),box=el("div");payDialog("Payment received",box,m);if(pre)ref=pre.reference;
@@ -1224,15 +1224,15 @@ function resumeReset(ref,pre){
   if(/already been used|not found/i.test(r.message||""))rstDrop();
   const again=el("button",{type:"button",className:"b",textContent:"Check again"});again.onclick=()=>run(1);box.replaceChildren(again);note(m,r.message||"Payment not confirmed.")};
  if(pre)showForm(pre);else run(0)}
-setTimeout(()=>{try{const q=new URLSearchParams(location.search);let ref=q.get("reference")||q.get("trxref");
- if(ref&&/^RST-/.test(ref)){rstSave(ref);history.replaceState(null,"",location.pathname);resumeReset(ref);return}
- const rb=el("button",{type:"button",className:"b g",id:"payResumeBtn",textContent:"I already paid. Open my reset page",style:"margin-top:8px;width:100%"});
- rb.onclick=()=>{const idI=el("input",{type:"text",maxLength:40,placeholder:"e.g. PUNS/23110032",autocomplete:"off",autocapitalize:"characters"}),m=el("div"),go=el("button",{type:"button",className:"b",textContent:"Find my payment"});
+const openPaid=()=>{const idI=el("input",{type:"text",maxLength:40,placeholder:"e.g. PUNS/23110032",autocomplete:"off",autocapitalize:"characters"}),m=el("div"),go=el("button",{type:"button",className:"b",textContent:"Find my payment"});
   go.onclick=async()=>{if(!idI.value.trim())return note(m,"Enter your student ID.");go.disabled=true;note(m,"Looking for your payment...",true);
    const r=await payFn({action:"recover",index:idI.value.trim()});
    if(r.status==="ok"){rstSave(r.reference);resumeReset(r.reference,r)}else{go.disabled=false;note(m,r.message||"No payment found.")}};
-  payDialog("I already paid",el("div",{textContent:"Enter the student ID you paid for. We will find your payment from the last 48 hours and open your reset page.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID",idI,m,el("div",{className:"arow"},go))};
- $("payResetBtn").after(rb);
+  payDialog("I already paid",el("div",{textContent:"Enter the student ID you paid for. We will find your payment from the last 7 days and open your reset page.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID",idI,m,el("div",{className:"arow"},go))};
+$("payResetBtn").onclick=()=>{const a=el("button",{type:"button",className:"b",textContent:"Pay GHS 10 to reset my password or edit my account",style:"width:100%;margin-bottom:8px"}),c=el("button",{type:"button",className:"b g",textContent:"I have paid already. Confirm my payment",style:"width:100%"});a.onclick=openPay;c.onclick=openPaid;
+ payDialog("Forgot password?",el("div",{textContent:"Each payment of GHS 10 works once. If you forget your password or need to edit your account again later, you pay again.",style:"color:var(--mute);margin-bottom:10px"}),a,c)};
+setTimeout(()=>{try{const q=new URLSearchParams(location.search);let ref=q.get("reference")||q.get("trxref");
+ if(ref&&/^RST-/.test(ref)){rstSave(ref);history.replaceState(null,"",location.pathname);resumeReset(ref);return}
  }catch(e){const d=payDialog("Something went wrong",el("div",{textContent:"Could not continue: "+(e&&e.message||e)}))}},0);
 init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE")){loadTeam();loadContacts()}});
 if(location.hash==="#admin")$("staffLink").click();
