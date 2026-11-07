@@ -1201,23 +1201,34 @@ $("payResetBtn").onclick=()=>{
   go.disabled=true;note(m,"Starting payment...",true);const r=await payFn({action:"init",index:idI.value.trim()});
   if(r.status==="ok"&&r.url){location.href=r.url;return}go.disabled=false;note(m,r.message||"Could not start the payment.")};
  payDialog("Fix my account online",el("div",{textContent:"Pay GHS 10 with Mobile Money (Telecel Cash, MTN, AirtelTigo). When the payment is confirmed you can set a new password, correct your admission year, and change your programme type (Regular, Assess or Top-Up). One payment covers all of them.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID (must match your account)",idI,m,el("div",{className:"arow"},go))};
-(async()=>{const q=new URLSearchParams(location.search),ref=q.get("reference")||q.get("trxref");if(!ref||!/^RST-/.test(ref))return;
- history.replaceState(null,"",location.pathname);
- const m=el("div"),box=el("div");payDialog("Payment received",box,m);note(m,"Checking your payment...",true);
- const r=await payFn({action:"verify",reference:ref});
- if(r.status!=="ok"){return note(m,r.message||"Payment not confirmed.")}
- note(m,"Payment confirmed for "+r.index+". Change what you need, then press Save.",true);
- const pr=r.profile||{},p1=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"New password (leave empty to keep the old one)"}),p2=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"Type the new password again"}),
-  ys=el("select",{},new Option("Keep as it is",""),...[...Array(18)].map((_,i)=>new Option(2023+i,2023+i))),ts=el("select",{},new Option("Keep as it is",""),new Option("Regular","Regular"),new Option("Assess","Assess"),new Option("Top-Up","Top-Up")),
-  sv=el("button",{type:"button",className:"b",textContent:"Save my changes"});
- if(pr.year)ys.value=String(pr.year);if(pr.type)ts.value=pr.type;
- sv.onclick=async()=>{const pw=p1.value;if(pw||p2.value){if(pw!==p2.value)return note(m,"The two passwords do not match.");
-   if(pw.length<8||!/[A-Za-z]/.test(pw)||!/[0-9]/.test(pw))return note(m,"Password must be 8 or more characters with letters and numbers.")}
-  if(!pw&&!ys.value&&!ts.value)return note(m,"Choose at least one thing to change.");
-  sv.disabled=true;const x=await payFn({action:"complete",reference:ref,token:r.token,password:pw,year:ys.value,type:ts.value});
-  if(x.status==="ok"){box.replaceChildren(el("div",{textContent:"Done. Your changes are saved."+(pw?" Log in with your student ID and the new password.":" Log in as usual."),style:"font-weight:600"}));note(m,"")}
-  else{sv.disabled=false;note(m,x.message||"Could not save your changes.")}};
- box.replaceChildren("New password (optional)",p1,p2,"Admission year",ys,"Programme type",ts,sv)})();
+const rstSave=r=>{try{localStorage.setItem("rstRef",r)}catch(e){}},rstDrop=()=>{try{localStorage.removeItem("rstRef")}catch(e){}};
+function resumeReset(ref){
+ const m=el("div"),box=el("div");payDialog("Payment received",box,m);
+ const showForm=r=>{
+  note(m,"Payment confirmed for "+r.index+". Change what you need, then press Save.",true);
+  const pr=r.profile||{},p1=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"New password (leave empty to keep the old one)"}),p2=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"Type the new password again"}),
+   ys=el("select",{},new Option("Keep as it is",""),...[...Array(18)].map((_,i)=>new Option(2023+i,2023+i))),ts=el("select",{},new Option("Keep as it is",""),new Option("Regular","Regular"),new Option("Assess","Assess"),new Option("Top-Up","Top-Up")),
+   sv=el("button",{type:"button",className:"b",textContent:"Save my changes"});
+  if(pr.year)ys.value=String(pr.year);if(pr.type)ts.value=pr.type;
+  sv.onclick=async()=>{const pw=p1.value;if(pw||p2.value){if(pw!==p2.value)return note(m,"The two passwords do not match.");
+    if(pw.length<8||!/[A-Za-z]/.test(pw)||!/[0-9]/.test(pw))return note(m,"Password must be 8 or more characters with letters and numbers.")}
+   if(!pw&&!ys.value&&!ts.value)return note(m,"Choose at least one thing to change.");
+   sv.disabled=true;const x=await payFn({action:"complete",reference:ref,token:r.token,password:pw,year:ys.value,type:ts.value});
+   if(x.status==="ok"){rstDrop();const rb=document.getElementById("payResumeBtn");rb&&rb.remove();box.replaceChildren(el("div",{textContent:"Done. Your changes are saved."+(pw?" Log in with your student ID and the new password.":" Log in as usual."),style:"font-weight:600"}));note(m,"")}
+   else{sv.disabled=false;note(m,x.message||"Could not save your changes.")}};
+  box.replaceChildren("New password (optional)",p1,p2,"Admission year",ys,"Programme type",ts,sv)};
+ const run=async n=>{note(m,"Checking your payment...",true);box.replaceChildren();
+  let r;try{r=await payFn({action:"verify",reference:ref})}catch(e){r={status:"error",message:"Could not check the payment: "+(e&&e.message||e)}}
+  if(r.status==="ok")return showForm(r);
+  if(r.status==="pending"&&n<12){note(m,"Waiting for your payment to be confirmed. If a prompt is on your phone, approve it.",true);setTimeout(()=>run(n+1),5000);return}
+  if(/already been used|not found/i.test(r.message||""))rstDrop();
+  const again=el("button",{type:"button",className:"b",textContent:"Check again"});again.onclick=()=>run(1);box.replaceChildren(again);note(m,r.message||"Payment not confirmed.")};
+ run(0)}
+setTimeout(()=>{try{const q=new URLSearchParams(location.search);let ref=q.get("reference")||q.get("trxref");
+ if(ref&&/^RST-/.test(ref)){rstSave(ref);history.replaceState(null,"",location.pathname);resumeReset(ref);return}
+ try{ref=localStorage.getItem("rstRef")}catch(e){ref=null}
+ if(ref&&/^RST-/.test(ref)){const rb=el("button",{type:"button",className:"b g",id:"payResumeBtn",textContent:"I already paid. Continue my reset",style:"margin-top:8px;width:100%"});rb.onclick=()=>resumeReset(ref);$("payResetBtn").after(rb)}
+ }catch(e){const d=payDialog("Something went wrong",el("div",{textContent:"Could not continue: "+(e&&e.message||e)}))}},0);
 init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE")){loadTeam();loadContacts()}});
 if(location.hash==="#admin")$("staffLink").click();
 // scroll reveal + background parallax (whole page)
