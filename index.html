@@ -1199,11 +1199,11 @@ $("payResetBtn").onclick=()=>{
   go=el("button",{type:"button",className:"b",textContent:"Pay GHS 10 now"});
  go.onclick=async()=>{if(!idI.value.trim())return note(m,"Enter your student ID.");
   go.disabled=true;note(m,"Starting payment...",true);const r=await payFn({action:"init",index:idI.value.trim()});
-  if(r.status==="ok"&&r.url){location.href=r.url;return}go.disabled=false;note(m,r.message||"Could not start the payment.")};
+  if(r.status==="ok"&&r.url){if(r.reference)rstSave(r.reference);location.href=r.url;return}go.disabled=false;note(m,r.message||"Could not start the payment.")};
  payDialog("Fix my account online",el("div",{textContent:"Pay GHS 10 with Mobile Money (Telecel Cash, MTN, AirtelTigo). When the payment is confirmed you can set a new password, correct your admission year, and change your programme type (Regular, Assess or Top-Up). One payment covers all of them.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID (must match your account)",idI,m,el("div",{className:"arow"},go))};
 const rstSave=r=>{try{localStorage.setItem("rstRef",r)}catch(e){}},rstDrop=()=>{try{localStorage.removeItem("rstRef")}catch(e){}};
-function resumeReset(ref){
- const m=el("div"),box=el("div");payDialog("Payment received",box,m);
+function resumeReset(ref,pre){
+ const m=el("div"),box=el("div");payDialog("Payment received",box,m);if(pre)ref=pre.reference;
  const showForm=r=>{
   note(m,"Payment confirmed for "+r.index+". Change what you need, then press Save.",true);
   const pr=r.profile||{},p1=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"New password (leave empty to keep the old one)"}),p2=el("input",{type:"password",maxLength:72,autocomplete:"new-password",placeholder:"Type the new password again"}),
@@ -1223,11 +1223,16 @@ function resumeReset(ref){
   if(r.status==="pending"&&n<12){note(m,"Waiting for your payment to be confirmed. If a prompt is on your phone, approve it.",true);setTimeout(()=>run(n+1),5000);return}
   if(/already been used|not found/i.test(r.message||""))rstDrop();
   const again=el("button",{type:"button",className:"b",textContent:"Check again"});again.onclick=()=>run(1);box.replaceChildren(again);note(m,r.message||"Payment not confirmed.")};
- run(0)}
+ if(pre)showForm(pre);else run(0)}
 setTimeout(()=>{try{const q=new URLSearchParams(location.search);let ref=q.get("reference")||q.get("trxref");
  if(ref&&/^RST-/.test(ref)){rstSave(ref);history.replaceState(null,"",location.pathname);resumeReset(ref);return}
- try{ref=localStorage.getItem("rstRef")}catch(e){ref=null}
- if(ref&&/^RST-/.test(ref)){const rb=el("button",{type:"button",className:"b g",id:"payResumeBtn",textContent:"I already paid. Continue my reset",style:"margin-top:8px;width:100%"});rb.onclick=()=>resumeReset(ref);$("payResetBtn").after(rb)}
+ const rb=el("button",{type:"button",className:"b g",id:"payResumeBtn",textContent:"I already paid. Open my reset page",style:"margin-top:8px;width:100%"});
+ rb.onclick=()=>{const idI=el("input",{type:"text",maxLength:40,placeholder:"e.g. PUNS/23110032",autocomplete:"off",autocapitalize:"characters"}),m=el("div"),go=el("button",{type:"button",className:"b",textContent:"Find my payment"});
+  go.onclick=async()=>{if(!idI.value.trim())return note(m,"Enter your student ID.");go.disabled=true;note(m,"Looking for your payment...",true);
+   const r=await payFn({action:"recover",index:idI.value.trim()});
+   if(r.status==="ok"){rstSave(r.reference);resumeReset(r.reference,r)}else{go.disabled=false;note(m,r.message||"No payment found.")}};
+  payDialog("I already paid",el("div",{textContent:"Enter the student ID you paid for. We will find your payment from the last 48 hours and open your reset page.",style:"color:var(--mute);margin-bottom:8px"}),"Student ID",idI,m,el("div",{className:"arow"},go))};
+ $("payResetBtn").after(rb);
  }catch(e){const d=payDialog("Something went wrong",el("div",{textContent:"Could not continue: "+(e&&e.message||e)}))}},0);
 init().then(()=>{if(!SUPABASE_URL.startsWith("PASTE")){loadTeam();loadContacts()}});
 if(location.hash==="#admin")$("staffLink").click();
