@@ -976,19 +976,20 @@ function backupCard(){const m=el("div"),b=el("button",{className:"b",textContent
 async function studentAccounts(){const v=$("v-students"),q=el("input",{type:"text",placeholder:"Search student ID, name or programme type (Regular, Assess, Top-Up)"}),m=el("div"),box=el("div"),cntEl=el("div",{style:"margin:8px 0;font-weight:600"});
  const tf=el("select",{},new Option("All programme types",""),...TYPES.map(x=>new Option(x,x)),new Option("Not chosen","Not chosen")),xb=el("button",{className:"b g",textContent:"Download Excel (current list)"});
  const ORD=["Regular","Assess","Top-Up","Not chosen"];let shown=[];
+ const sf=el("select",{},new Option("Sort: programme type, then name","type"),new Option("Sort: newest joined first","new"),new Option("Sort: oldest joined first","old")),byDate=()=>sf.value==="new"||sf.value==="old",jt=a=>a.created_at?new Date(a.created_at).getTime()||0:0,jd=a=>a.created_at?new Date(a.created_at).toLocaleString():"-";
  const act=async(fn,args,okMsg)=>{const {data,error}=await db.rpc(fn,args);const bad=error||(data&&data.status==="error");note(m,bad?"Could not do that: "+((data&&data.message)||(error&&error.message)):okMsg,!bad);load()};
  const load=async()=>{const qs=q.value.trim(),qw=typeWord(qs),qt=qw==="Not stated"?"Not chosen":qw;
   const {data,error}=await db.rpc("admin_list_student_accounts",{p_search:qt?"":qs});if(error)return note(m,"Could not load accounts (run STUDENT_ACCOUNTS.sql).");
   const X={};let exOk=true;try{const ex=await db.rpc("admin_list_student_extras");if(ex.error||!Array.isArray(ex.data))exOk=false;else ex.data.forEach(r=>{X[String(r.index_number).toUpperCase()]=r})}catch(e){exOk=false}
   if(!exOk)note(m,"Editing the intake year and programme type needs UPDATE_3_FEATURES.sql to be run in Supabase first.");
   const exOf=a=>X[String(a.index_number).toUpperCase()]||{},tpOf=a=>exOf(a).student_type||"",f=tf.value||qt;
-  const list=(data||[]).filter(a=>!f||(f==="Not chosen"?!tpOf(a):tpOf(a)===f)).sort((a,b)=>ORD.indexOf(tpOf(a)||"Not chosen")-ORD.indexOf(tpOf(b)||"Not chosen")||String(a.full_name).localeCompare(String(b.full_name)));
+  const list=(data||[]).filter(a=>!f||(f==="Not chosen"?!tpOf(a):tpOf(a)===f)).sort((a,b)=>byDate()?(sf.value==="new"?jt(b)-jt(a):jt(a)-jt(b)):(ORD.indexOf(tpOf(a)||"Not chosen")-ORD.indexOf(tpOf(b)||"Not chosen")||String(a.full_name).localeCompare(String(b.full_name))));
   const cts=ORD.map(k=>[k,list.filter(a=>(tpOf(a)||"Not chosen")===k).length]).filter(x=>x[1]).map(x=>x[0]+" "+x[1]).join(", ");
   cntEl.textContent=list.length+" student(s)"+(cts?": "+cts:"");
   shown=list.map(a=>{const ex=exOf(a),yr=ex.intake_year||parseInt(a.batch,10)||"";return{a,tp:tpOf(a)||"Not chosen",year:yr,batch:ex.intake_year&&a.batch?String(a.batch).replace(/^\d{4}/,ex.intake_year):a.batch}});
-  const t=el("table",{},el("tr",{},...["Student ID","Name","Batch","Intake year","Programme type","Phone","Reports","Last login","Status","Actions"].map(h=>el("th",{textContent:h}))));let g="";
+  const t=el("table",{},el("tr",{},...["Student ID","Name","Batch","Intake year","Programme type","Phone","Joined","Reports","Last login","Status","Actions"].map(h=>el("th",{textContent:h}))));let g="";
   list.forEach(a=>{const ex=exOf(a),curY=ex.intake_year||parseInt(a.batch,10)||0,curT=ex.student_type||"",grp=curT||"Not chosen";
-   if(grp!==g){g=grp;t.append(el("tr",{className:"gh"},el("td",{colSpan:10,textContent:grp+" students ("+list.filter(x=>(tpOf(x)||"Not chosen")===grp).length+")"})))}
+   if(!byDate()&&grp!==g){g=grp;t.append(el("tr",{className:"gh"},el("td",{colSpan:11,textContent:grp+" students ("+list.filter(x=>(tpOf(x)||"Not chosen")===grp).length+")"})))}
    const ys=el("select",{},...[...Array(18)].map((_,i)=>new Option(2023+i,2023+i))),ts=el("select",{},new Option("Not chosen",""),...TYPES.map(x=>new Option(x,x)));
    if(curY&&(curY<2023||curY>2040))ys.prepend(new Option(curY,curY));ys.value=String(curY);ts.value=curT;if(!exOk){ys.disabled=true;ts.disabled=true}
    const sv=el("button",{className:"b",textContent:"Save changes",disabled:!exOk}),rs=el("button",{className:"b g",textContent:"Reset password"}),tg=el("button",{className:"b g",textContent:a.is_active?"Switch off":"Switch on"}),dl=el("button",{className:"b g",textContent:"Delete",style:"color:var(--bad);border-color:var(--bad)"});
@@ -1002,20 +1003,20 @@ async function studentAccounts(){const v=$("v-students"),q=el("input",{type:"tex
    tg.onclick=()=>act("admin_set_student_active",{p_account_id:a.id,p_active:!a.is_active},"Saved.");
    dl.onclick=()=>{if(confirm("Delete the account of "+a.index_number+"? Their reports are kept. They (or the real owner of the ID) can register again."))act("admin_delete_student_account",{p_account_id:a.id},"Account deleted.")};
    const batch=ex.intake_year&&a.batch?String(a.batch).replace(/^\d{4}/,ex.intake_year):a.batch;
-   t.append(el("tr",{},...[a.index_number,a.full_name,batch].map(x=>el("td",{textContent:x})),el("td",{},ys),el("td",{},ts),...[a.contact,a.reports,a.last_login_at?new Date(a.last_login_at).toLocaleString():"never",a.locked?"Locked":(a.is_active?"Active":"Off")].map(x=>el("td",{textContent:x})),el("td",{},sv," ",rs," ",tg," ",dl)))});
+   t.append(el("tr",{},...[a.index_number,a.full_name,batch].map(x=>el("td",{textContent:x})),el("td",{},ys),el("td",{},ts),...[a.contact,jd(a),a.reports,a.last_login_at?new Date(a.last_login_at).toLocaleString():"never",a.locked?"Locked":(a.is_active?"Active":"Off")].map(x=>el("td",{textContent:x})),el("td",{},sv," ",rs," ",tg," ",dl)))});
   box.replaceChildren(list.length?el("div",{className:"wrap"},t):el("div",{textContent:(data&&data.length)?"No students of this programme type.":"No student accounts yet.",style:"color:var(--mute)"}))};
  xb.onclick=async()=>{if(!shown.length)return note(m,"No students to export.");
   const {error}=await db.rpc("log_export",{p_description:"Excel: "+shown.length+" student accounts"});if(error)return note(m,"Your role may not export records.");
   if(typeof XLSX==="undefined")return note(m,"The Excel tool did not load. Refresh and try again.");
-  const H=["No.","Student ID","Full name","Programme type","Batch","Intake year","Phone","Reports","Last login","Status"];
-  const rowOf=(s,i)=>{const a=s.a;return[i+1,a.index_number,a.full_name,s.tp,s.batch||"",s.year||"",a.contact||"",a.reports,a.last_login_at?new Date(a.last_login_at).toLocaleString():"never",a.locked?"Locked":(a.is_active?"Active":"Off")]};
-  const sorted=shown.slice().sort((x,y)=>ORD.indexOf(x.tp)-ORD.indexOf(y.tp)||String(x.a.full_name).localeCompare(String(y.a.full_name)));
-  const wb=XLSX.utils.book_new(),add=(name,l,title)=>{const ws=XLSX.utils.aoa_to_sheet([[title],["Generated: "+new Date().toLocaleString()+"   |   "+l.length+" student(s)"],[],H].concat(l.map(rowOf)));ws["!cols"]=[6,16,28,16,22,12,16,9,22,10].map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ws,name)};
+  const H=["No.","Student ID","Full name","Programme type","Batch","Intake year","Phone","Joined","Reports","Last login","Status"];
+  const rowOf=(s,i)=>{const a=s.a;return[i+1,a.index_number,a.full_name,s.tp,s.batch||"",s.year||"",a.contact||"",jd(a),a.reports,a.last_login_at?new Date(a.last_login_at).toLocaleString():"never",a.locked?"Locked":(a.is_active?"Active":"Off")]};
+  const sorted=byDate()?shown.slice():shown.slice().sort((x,y)=>ORD.indexOf(x.tp)-ORD.indexOf(y.tp)||String(x.a.full_name).localeCompare(String(y.a.full_name)));
+  const wb=XLSX.utils.book_new(),add=(name,l,title)=>{const ws=XLSX.utils.aoa_to_sheet([[title],["Generated: "+new Date().toLocaleString()+"   |   "+l.length+" student(s)"],[],H].concat(l.map(rowOf)));ws["!cols"]=[6,16,28,16,22,12,16,20,9,22,10].map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ws,name)};
   add("All students",sorted,"STUDENT ACCOUNTS - ALL PROGRAMME TYPES");
   ORD.forEach(k=>{const l=sorted.filter(x=>x.tp===k);if(l.length)add(k,l,"STUDENT ACCOUNTS - "+k.toUpperCase())});
   XLSX.writeFile(wb,"student-accounts-"+new Date().toISOString().slice(0,10)+".xlsx");note(m,"Excel file downloaded ("+shown.length+" students).",true)};
- q.oninput=()=>{clearTimeout(q._t);q._t=setTimeout(load,300)};tf.onchange=load;
- v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Student accounts"}),el("div",{textContent:"Students create their own account with their student ID and choose their programme type (Regular, Assess or Top-Up). Use the filter to view one type at a time, or type Regular, Assess or Top-Up in the search box. The Excel download includes a Programme type column and uses the list as filtered below. If someone registered an ID that is not theirs, Delete that account so the real student can register. Reset gives a temporary password (for students who forgot theirs). You can also change a student\u2019s intake year and programme type in the table.",style:"color:var(--mute);margin-bottom:8px"}),el("div",{className:"f"},q,tf,xb),m,cntEl),el("div",{className:"card"},box));load()}
+ q.oninput=()=>{clearTimeout(q._t);q._t=setTimeout(load,300)};tf.onchange=load;sf.onchange=load;
+ v.replaceChildren(el("div",{className:"card"},el("h3",{textContent:"Student accounts"}),el("div",{textContent:"Students create their own account with their student ID and choose their programme type (Regular, Assess or Top-Up). Use the filter to view one type at a time, or type Regular, Assess or Top-Up in the search box. The Excel download includes a Programme type column and uses the list as filtered below. If someone registered an ID that is not theirs, Delete that account so the real student can register. Reset gives a temporary password (for students who forgot theirs). You can also change a student\u2019s intake year and programme type in the table.",style:"color:var(--mute);margin-bottom:8px"}),el("div",{className:"f"},q,tf,sf,xb),m,cntEl),el("div",{className:"card"},box));load()}
 async function auditLog(){const v=$("v-audit");
  const {data,error}=await db.from("audit_logs").select("id,actor_id,action,table_name,record_id,created_at").order("id",{ascending:false}).limit(200);
  if(error)return v.replaceChildren(el("div",{className:"amsg",textContent:"Only the super administrator can view the audit log."}));
