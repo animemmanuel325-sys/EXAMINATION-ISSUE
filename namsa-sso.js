@@ -15,9 +15,9 @@
    If a form must show an ID box, call  NamsaSSO.assertSameId(typedValue).
    ===================================================================== */
 const NAMSA_CONFIG = {
-  supabaseUrl: "https://THIS-COMMITTEES-PROJECT.supabase.co",   // this committee's Supabase project
-  anonKey: "THIS-COMMITTEES-PUBLISHABLE-KEY",                    // its PUBLIC key (never the service key)
-  mainOrigin: "https://your-main-namsa-site.example",            // the main portal website (no path)
+  supabaseUrl: "https://vmoxzwipxmqkeukahnms.supabase.co",
+  anonKey: "sb_publishable_m-wY_RbuqGDySB-tckEgEQ_uRq9d-mt",
+  mainOrigin: "https://namsapu359-ux.github.io",            // the main portal website (no path)
   homeUrl: "../index.html"                                       // the committee's home page, written from the auth folder
 };
 
