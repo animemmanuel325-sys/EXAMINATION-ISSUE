@@ -3,33 +3,56 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="referrer" content="no-referrer-when-downgrade">
 <title>Signing you in…</title>
+<!-- Upload as  auth/callback.html  (inside a folder named auth). Nothing to edit here.
+     The values to edit are at the top of ../namsa-sso.js (including homeUrl, the committee home page). -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="../namsa-sso.js"></script>
 <style>
   body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f3f9fa;color:#0a1f2c}
-  .box{background:#fff;padding:28px 32px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.1);max-width:420px;text-align:center}
+  .box{background:#fff;padding:28px 32px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.1);max-width:440px;text-align:center;line-height:1.5}
   a{color:#047857;font-weight:700}
+  .spin{width:28px;height:28px;border:4px solid #d3e7da;border-top-color:#047857;border-radius:50%;margin:0 auto 12px;animation:r 1s linear infinite}
+  @keyframes r{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div class="box" id="box"><b>Signing you in…</b></div>
+<div class="box" id="box"><div class="spin"></div><b id="msg">Signing you in…</b></div>
 <script>
-NamsaSSO.init();
-const box = document.getElementById("box");
-NamsaSSO.handleCallback()
-  .then((s) => {
-    box.textContent = "Welcome, " + (s.name || s.label) + ". Opening the committee…";
-    location.replace("../index.html");
-  })
-  .catch((e) => {
+(function () {
+  const box = document.getElementById("box");
+  let step = "starting", done = false;
+  function problem(text, withPortalLink) {
+    if (done) return; done = true;
     box.innerHTML = "";
-    const b = document.createElement("b"); b.textContent = "Could not sign you in";
-    const p = document.createElement("p"); p.textContent = e.message;
-    const a = document.createElement("a"); a.textContent = "Go to the NAMSA-PU portal"; a.href = NamsaSSO.mainUrl(); a.target = "_top";
-    box.append(b, p, a);
-  });
+    const b = document.createElement("b"); b.textContent = "Could not open the committee";
+    const p = document.createElement("p"); p.textContent = text;
+    box.append(b, p);
+    if (withPortalLink !== false) {
+      let href = "/"; try { href = NamsaSSO.mainUrl(); } catch (e) {}
+      const a = document.createElement("a"); a.textContent = "Go back to the NAMSA-PU portal"; a.href = href; a.target = "_top";
+      box.append(a);
+    }
+  }
+  // Every failure shows a message. This page can no longer sit on "Signing you in…" forever.
+  if (typeof supabase === "undefined") return problem("The Supabase library did not load. Check your internet connection and try again.", false);
+  if (typeof NamsaSSO === "undefined") return problem("namsa-sso.js was not found. It must be in the main folder of this website, next to index.html (one folder above this auth folder).", false);
+  const watchdog = setTimeout(() => problem("This is taking too long (stuck at: " + step + "). Go back to the portal and try again."), 25000);
+  try { NamsaSSO.init(); } catch (e) { clearTimeout(watchdog); return problem("namsa-sso.js is not set up: " + e.message, false); }
+
+  NamsaSSO.handleCallback((s) => { step = s; document.getElementById("msg").textContent = s; })
+    .then((s) => {
+      clearTimeout(watchdog); done = true;
+      const home = NamsaSSO.homeUrl();
+      box.innerHTML = "";
+      const b = document.createElement("b"); b.textContent = "Welcome, " + (s.name || s.label);
+      const p = document.createElement("p"); p.textContent = "Opening the committee…";
+      const a = document.createElement("a"); a.textContent = "Tap here if it does not open"; a.href = home;
+      box.append(b, p, a);
+      location.replace(home);
+    })
+    .catch((e) => { clearTimeout(watchdog); problem(e.message || "Sign-in failed."); });
+})();
 </script>
 </body>
 </html>
