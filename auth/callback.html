@@ -20,8 +20,8 @@
 const SUPABASE_URL = "https://vmoxzwipxmqkeukahnms.supabase.co";
 const SUPABASE_KEY = "sb_publishable_m-wY_RbuqGDySB-tckEgEQ_uRq9d-mt";
 /* ============================================================================ */
-const MAIN_ORIGIN = "https://namsapu359-ux.github.io";                 // your main portal website
-const MAIN_URL    = "https://namsapu359-ux.github.io/NAMSA-PU-WEB/";   // the portal page
+const MAIN_ORIGINS = ["https://namsapu.com", "https://www.namsapu.com", "https://namsapu359-ux.github.io"];   // every address the portal can be opened from
+const MAIN_URL     = "https://namsapu.com/";                                                                    // the portal page
 const HOME_URL    = "../index.html";                                    // this committee's home page
 
 (function () {
@@ -51,9 +51,9 @@ const HOME_URL    = "../index.html";                                    // this 
 
       // the sign-in must start from the NAMSA-PU portal
       let ok = false;
-      try { ok = !!document.referrer && new URL(document.referrer).origin === MAIN_ORIGIN; } catch (e) {}
+      try { ok = !!document.referrer && MAIN_ORIGINS.includes(new URL(document.referrer).origin); } catch (e) {}
       const anc = location.ancestorOrigins;
-      if (!ok && anc && anc.length) ok = [...anc].includes(MAIN_ORIGIN);
+      if (!ok && anc && anc.length) ok = [...anc].some((o) => MAIN_ORIGINS.includes(o));
       if (!ok && !document.referrer && !(anc && anc.length) && window.parent !== window) ok = true;   // browsers that hide the referrer
       if (!ok) throw new Error("Please open this committee from the NAMSA-PU portal.");
 
