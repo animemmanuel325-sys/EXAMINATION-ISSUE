@@ -15,9 +15,10 @@
    To switch the automatic part off on a page, put  <script>window.NAMSA_MANUAL=true</script>  before this line.
    ===================================================================== */
 const NAMSA_CONFIG = {
-  supabaseUrl: "https://vmoxzwipxmqkeukahnms.supabase.co",
-  anonKey: "sb_publishable_m-wY_RbuqGDySB-tckEgEQ_uRq9d-mt",
-  mainOrigin: "https://namsapu359-ux.github.io",            // the main portal website (no path)
+  supabaseUrl: "https://vmoxzwipxmqkeukahnms.supabase.co",   // this committee's Supabase project
+  anonKey: "sb_publishable_m-wY_RbuqGDySB-tckEgEQ_uRq9d-mt",                    // its PUBLIC key (never the service key)
+  mainOrigins: ["https://namsapu.com", "https://www.namsapu.com", "https://namsapu359-ux.github.io"],   // every address the portal can be opened from
+  mainUrl: "https://namsapu.com/",                               // where "Back to the portal" goes
   homeUrl: "../index.html"                                       // the committee's home page, written from the auth folder
 };
 
@@ -32,9 +33,10 @@ const NamsaSSO = (() => {
   function init(extra) {
     if (sb && !extra) return sb;
     cfg = Object.assign({ requirePortal: true }, NAMSA_CONFIG, extra || {});
-    try { cfg.mainOrigin = new URL(cfg.mainOrigin).origin; }            // tolerates a trailing slash or path
-    catch (e) { throw new Error("mainOrigin in namsa-sso.js must be a full address such as https://your-site.github.io"); }
-    cfg.mainUrl = cfg.mainUrl || cfg.mainOrigin + "/";
+    cfg.portalOrigins = [].concat(cfg.mainOrigins || cfg.mainOrigin || [])
+      .map((o) => { try { return new URL(o).origin; } catch (e) { return null; } }).filter(Boolean);
+    if (!cfg.portalOrigins.length) throw new Error("mainOrigins in namsa-sso.js must list the portal address, such as https://namsapu.com");
+    cfg.mainUrl = cfg.mainUrl || cfg.portalOrigins[0] + "/";
     cfg.exchangeUrl = cfg.exchangeUrl || cfg.supabaseUrl.replace(/\/$/, "") + "/functions/v1/namsa-sso-exchange";
     sb = supabase.createClient(cfg.supabaseUrl, cfg.anonKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
@@ -47,7 +49,7 @@ const NamsaSSO = (() => {
     const hide = document.getElementById("namsa-hide"); if (hide) hide.remove();
     try {
       if (window.parent !== window && cfg) {
-        window.parent.postMessage({ type: mismatch ? "namsa-identity-mismatch" : "namsa-blocked", message: msg }, cfg.mainOrigin);
+        window.parent.postMessage({ type: mismatch ? "namsa-identity-mismatch" : "namsa-blocked", message: msg }, "*");   // harmless text; the portal checks who sent it
       }
     } catch (e) {}
     document.body.innerHTML = "";
@@ -70,18 +72,18 @@ const NamsaSSO = (() => {
       if (window.parent === window) return resolve(null);
       const t = setTimeout(() => { removeEventListener("message", h); resolve(null); }, 2500);
       function h(e) {
-        if (e.origin !== cfg.mainOrigin || e.source !== window.parent || !e.data || e.data.type !== "namsa-identity") return;
+        if (!cfg.portalOrigins.includes(e.origin) || e.source !== window.parent || !e.data || e.data.type !== "namsa-identity") return;
         clearTimeout(t); removeEventListener("message", h); resolve(e.data.id || null);
       }
       addEventListener("message", h);
-      window.parent.postMessage({ type: "namsa-whoami" }, cfg.mainOrigin);
+      window.parent.postMessage({ type: "namsa-whoami" }, "*");   // no secrets in it; only a portal on the allowed list can answer
     });
   }
 
   function startWatch() {
     if (watching) return; watching = true;
     addEventListener("message", (e) => {
-      if (e.origin !== cfg.mainOrigin || e.source !== window.parent || !e.data) return;
+      if (!cfg.portalOrigins.includes(e.origin) || e.source !== window.parent || !e.data) return;
       if (e.data.type === "namsa-logout") signOutAndBlock("You signed out of the NAMSA-PU portal, so you have been signed out of this committee too.");
       if (e.data.type === "namsa-identity" && current && norm(e.data.id) !== norm(current.id)) signOutAndBlock(MISMATCH, true);
     });
@@ -101,8 +103,8 @@ const NamsaSSO = (() => {
     const code = u.searchParams.get("code");
     history.replaceState(null, "", u.pathname);
     let fromPortal = false;
-    try { fromPortal = !!document.referrer && new URL(document.referrer).origin === cfg.mainOrigin; } catch (e) {}
-    if (!fromPortal && location.ancestorOrigins) fromPortal = [...location.ancestorOrigins].includes(cfg.mainOrigin);
+    try { fromPortal = !!document.referrer && cfg.portalOrigins.includes(new URL(document.referrer).origin); } catch (e) {}
+    if (!fromPortal && location.ancestorOrigins) fromPortal = [...location.ancestorOrigins].some((o) => cfg.portalOrigins.includes(o));
     if (!fromPortal || !code) fail("Please open this committee from the NAMSA-PU portal.");
     step("Asking the committee server…");
     const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 15000);
